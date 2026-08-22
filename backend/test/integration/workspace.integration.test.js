@@ -28,12 +28,23 @@ test('Jira workspace APIs persist data and enforce ownership and RBAC', { skip: 
   const type = (await (await request('admin', `/projects/${project.id}/issue-types`)).json()).issueTypes[0];
   const issue = (await (await request('member', `/projects/${project.id}/issues`, 'POST', { title: 'Plan this work', issueTypeId: type.id })).json()).issue;
 
+  const assigneeLookup = await request('member', `/projects/${project.id}/assignees?search=view`);
+  assert.equal(assigneeLookup.status, 200); assert.equal((await assigneeLookup.json()).assignees[0].user_id, users.viewer);
+  const allAssignees = await request('member', `/projects/${project.id}/assignees`);
+  assert.equal(allAssignees.status, 200); assert.equal((await allAssignees.json()).assignees.length, 3);
+  assert.equal((await request('member', `/projects/${project.id}/issues`, 'POST', { title: 'Wrong assignee', issueTypeId: type.id, assigneeId: 999999 })).status, 400);
+
   assert.equal((await request('viewer', `/projects/${project.id}/summary`)).status, 200);
   assert.equal((await request('viewer', `/projects/${project.id}/sprints`, 'POST', { name: 'Forbidden' })).status, 403);
   const sprintResponse = await request('member', `/projects/${project.id}/sprints`, 'POST', { name: 'Sprint 1', status: 'active', startDate: '2026-08-22', endDate: '2026-08-29' });
   assert.equal(sprintResponse.status, 201); const sprint = (await sprintResponse.json()).sprint;
   assert.equal((await request('admin', `/projects/${project.id}/sprints`, 'POST', { name: 'Sprint 2', status: 'active' })).status, 409);
   assert.equal((await request('member', `/issues/${issue.issue_key}/planning`, 'PATCH', { sprintId: sprint.id, dueDate: '2026-08-28', storyPoints: 5 })).status, 200);
+  const secondIssue = (await (await request('member', `/projects/${project.id}/issues`, 'POST', { title: 'Searchable board work', issueTypeId: type.id, assigneeId: users.member, statusId: (await (await request('admin', `/projects/${project.id}/workflow-statuses`)).json()).workflowStatuses[0].id, dueDate: '2026-08-29' })).json()).issue;
+  assert.equal((await (await request('viewer', `/projects/${project.id}/issues?search=Searchable`)).json()).issues[0].id, secondIssue.id);
+  const completed = await request('member', `/projects/${project.id}/sprints/${sprint.id}/complete`, 'POST');
+  assert.equal(completed.status, 200); assert.equal((await completed.json()).movedIssueCount, 1);
+  assert.equal((await request('member', `/projects/${project.id}/sprints/${sprint.id}/complete`, 'POST')).status, 409);
 
   const doc = (await (await request('member', `/projects/${project.id}/docs`, 'POST', { title: 'Plan', content: 'Ship it' })).json()).doc;
   assert.equal((await request('viewer', `/projects/${project.id}/docs`)).status, 200);
@@ -48,5 +59,5 @@ test('Jira workspace APIs persist data and enforce ownership and RBAC', { skip: 
   assert.equal(linkResponse.status, 201);
   assert.equal((await request('viewer', `/projects/${project.id}/development-links`)).status, 200);
   const persisted = await pool.query('SELECT sprint_id,due_date,story_points FROM issues WHERE id=$1', [issue.id]);
-  assert.equal(persisted.rows[0].sprint_id, sprint.id); assert.equal(persisted.rows[0].story_points, 5);
+  assert.equal(persisted.rows[0].sprint_id, null); assert.equal(persisted.rows[0].story_points, 5);
 });

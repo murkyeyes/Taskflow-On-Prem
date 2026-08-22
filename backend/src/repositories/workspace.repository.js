@@ -99,6 +99,25 @@ async function deleteSprint(projectId, sprintId, client = pool) {
   return (await client.query('DELETE FROM sprints WHERE project_id = $1 AND id = $2 RETURNING id', [projectId, sprintId])).rowCount === 1;
 }
 
+async function completeSprint(projectId, sprintId, client = pool) {
+  const sprintResult = await client.query(
+    `UPDATE sprints SET status = 'completed', updated_at = now()
+      WHERE project_id = $1 AND id = $2 AND status = 'active'
+      RETURNING *`,
+    [projectId, sprintId],
+  );
+  const sprint = sprintResult.rows[0] ?? null;
+  if (!sprint) return null;
+  const moved = await client.query(
+    `UPDATE issues AS issue SET sprint_id = NULL, updated_at = now()
+       FROM workflow_statuses AS status
+      WHERE issue.sprint_id = $1 AND status.id = issue.status_id AND NOT status.is_final
+      RETURNING issue.id`,
+    [sprintId],
+  );
+  return { sprint, movedIssueCount: moved.rowCount };
+}
+
 async function updatePlanning(issueKey, data, client = pool) {
   const result = await client.query(
     `UPDATE issues SET
@@ -222,7 +241,7 @@ async function listSubmissions(projectId, formId, client = pool) {
 
 module.exports = {
   createDevelopmentLink, createDoc, createForm, createSprint, createSubmission,
-  deleteDevelopmentLink, deleteDoc, deleteForm, deleteSprint, findDoc, findForm, findSprint,
+  completeSprint, deleteDevelopmentLink, deleteDoc, deleteForm, deleteSprint, findDoc, findForm, findSprint,
   getSummary, listDevelopmentLinks, listDocs, listForms, listSprints, listSubmissions,
   lockSprints, updateDoc, updateForm, updatePlanning, updateSprint,
 };

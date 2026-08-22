@@ -5,6 +5,10 @@ async function listMembers(projectId) {
   return memberRepository.list(projectId);
 }
 
+async function searchAssignees(projectId, search) {
+  return memberRepository.searchAssignees(projectId, search);
+}
+
 async function addMember(projectId, userId, projectRole) {
   try {
     return await memberRepository.add(projectId, userId, projectRole);
@@ -37,5 +41,6 @@ module.exports = {
   addMember,
   listMembers,
   removeMember,
+  searchAssignees,
   updateMember,
 };

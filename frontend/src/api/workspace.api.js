@@ -5,6 +5,7 @@ export const listSprints = (projectId) => apiRequest(`/projects/${projectId}/spr
 export const createSprint = (projectId, data) => apiRequest(`/projects/${projectId}/sprints`, { method: 'POST', body: jsonBody(data) });
 export const updateSprint = (projectId, id, data) => apiRequest(`/projects/${projectId}/sprints/${id}`, { method: 'PATCH', body: jsonBody(data) });
 export const deleteSprint = (projectId, id) => apiRequest(`/projects/${projectId}/sprints/${id}`, { method: 'DELETE' });
+export const completeSprint = (projectId, id) => apiRequest(`/projects/${projectId}/sprints/${id}/complete`, { method: 'POST' });
 export const updatePlanning = (issueKey, data) => apiRequest(`/issues/${encodeURIComponent(issueKey)}/planning`, { method: 'PATCH', body: jsonBody(data) });
 
 export const listDevelopmentLinks = (projectId) => apiRequest(`/projects/${projectId}/development-links`);

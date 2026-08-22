@@ -191,7 +191,7 @@ Base path: `/api`.
 
 Các endpoint bắt buộc:
 
-- `POST /auth/register`
+- `POST /auth/register` (authenticated account provisioning only)
 - `POST /auth/login`
 - `POST /auth/logout`
 - `GET /auth/me`
@@ -200,7 +200,10 @@ JWT:
 
 - lưu trong HttpOnly Cookie tên `token`;
 - không lưu token ở localStorage;
-- `requireAuth` áp dụng cho mọi route trừ register/login.
+- `requireAuth` áp dụng cho mọi route trừ login. `POST /auth/register` còn yêu cầu
+  người gọi đang đăng nhập và có ít nhất một membership `project_role = admin`.
+  Public self-registration bị cấm. Tài khoản admin bootstrap được tạo bằng `seed.sql`
+  hoặc quy trình triển khai được phê duyệt.
 
 ### 7.2 Projects
 
@@ -223,6 +226,7 @@ Khi `POST /projects`:
 - `POST /projects/:projectId/members`
 - `PATCH /projects/:projectId/members/:userId`
 - `DELETE /projects/:projectId/members/:userId`
+- `GET /projects/:projectId/assignees?search=<account name or email>`
 
 ### 7.4 Issue Types
 
@@ -258,6 +262,7 @@ List issues phải hỗ trợ các query param đã định nghĩa trong System 
 - `issue_type_id`
 - `page`
 - `pageSize`
+- `search` (match case-insensitive against issue key or title)
 
 ### 7.7 Comments
 
@@ -303,6 +308,7 @@ Các endpoint bắt buộc của phần mở rộng:
 - `GET|POST /projects/:projectId/sprints`
 - `PATCH|DELETE /projects/:projectId/sprints/:sprintId`
 - `PATCH /issues/:issueKey/planning`
+- `POST /projects/:projectId/sprints/:sprintId/complete`
 - `GET|POST /projects/:projectId/development-links`
 - `DELETE /projects/:projectId/development-links/:linkId`
 - `GET|POST /projects/:projectId/docs`
@@ -363,7 +369,8 @@ Polling nên được gom vào hook/service tương ứng như `usePolling`.
 - Trạng thái thu gọn sidebar có thể lưu trong React state/localStorage; JWT vẫn tuyệt đối không được lưu trong localStorage.
 - Summary phải lấy aggregate thật từ API; Backlog/Timeline/Development/Docs/Forms phải đọc/ghi dữ liệu thật theo RBAC.
 - Không thêm chart framework lớn; ưu tiên CSS/SVG/HTML thuần.
-- Login chỉ mô phỏng visual language của Jira nhưng giữ email/password + register hiện có; không thêm OAuth/social login nếu chưa được phê duyệt riêng.
+- Login chỉ mô phỏng visual language của Jira và giữ email/password; public register UI/API bị loại bỏ. Chỉ project admin mới có thể tạo tài khoản qua settings; không thêm OAuth/social login nếu chưa được phê duyệt riêng.
+- Board phải có server-backed search, assignee-by-account-name lookup/filter, filter/group controls, inline create theo workflow column, admin-only add-column control, và complete-active-sprint action. Create issue phải hỗ trợ optional status, due date và project-member assignee; backend phải xác minh assignee thuộc project.
 
 ### 9.2 Build output và production static folder
 

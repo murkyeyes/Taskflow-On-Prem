@@ -218,3 +218,7 @@ The Summary, Backlog, Timeline, Development, Docs, Forms, and collapsible-sideba
 For an existing installation, run the idempotent workspace migration before starting the rebuilt backend. For a clean installation, `schema.sql` creates the full 14-table schema. Deployment order is: take a `pg_dump -Fc` backup, apply the migration, build/test backend and frontend, refresh `frontend-dist/`, rebuild the protected app image, then run API and browser smoke tests through Caddy. Rollback requires restoring the pre-migration dump together with the prior app/static artifacts.
 
 No additional host ports, Windows services, Docker services, persistent WebSocket, or external OAuth provider are introduced by this expansion.
+
+## 8. Board Controls and Account Provisioning Deployment (approved 2026-08-22)
+
+This expansion requires no new service, host port, or table. Before deploying it, ensure the approved bootstrap administrator exists; public registration is disabled and account creation thereafter is performed by authenticated project administrators through the existing API/Caddy path. Deploy the rebuilt backend and static frontend together so board controls and their API contract remain in sync. The sprint-completion operation is transactional in PostgreSQL and requires the existing database backup procedure before rollout.

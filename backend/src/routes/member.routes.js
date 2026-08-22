@@ -6,6 +6,7 @@ const { requireRole } = require('../middlewares/rbac.middleware');
 
 const router = express.Router();
 
+router.get('/:projectId/assignees', requireAuth, requireRole(['admin', 'member', 'viewer']), memberController.assignees);
 router.get('/:projectId/members', requireAuth, requireRole(['admin', 'member']), memberController.list);
 router.post('/:projectId/members', requireAuth, requireRole(['admin']), memberController.create);
 router.patch('/:projectId/members/:userId', requireAuth, requireRole(['admin']), memberController.update);

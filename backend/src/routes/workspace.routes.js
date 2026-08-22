@@ -12,6 +12,7 @@ router.get('/:projectId/summary', requireAuth, all, controller.summary);
 router.get('/:projectId/sprints', requireAuth, all, controller.listSprints);
 router.post('/:projectId/sprints', requireAuth, editors, controller.createSprint);
 router.patch('/:projectId/sprints/:sprintId', requireAuth, editors, controller.updateSprint);
+router.post('/:projectId/sprints/:sprintId/complete', requireAuth, editors, controller.completeSprint);
 router.delete('/:projectId/sprints/:sprintId', requireAuth, admins, controller.deleteSprint);
 router.get('/:projectId/development-links', requireAuth, all, controller.listDevelopment);
 router.post('/:projectId/development-links', requireAuth, editors, controller.createDevelopment);

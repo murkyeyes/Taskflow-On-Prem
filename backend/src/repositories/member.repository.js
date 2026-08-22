@@ -41,6 +41,30 @@ async function list(projectId, client = pool) {
   return result.rows;
 }
 
+async function searchAssignees(projectId, search = '', client = pool) {
+  const result = await client.query(
+    `SELECT member.project_id, member.user_id, member.project_role, app_user.name, app_user.email
+       FROM project_members AS member
+       JOIN users AS app_user ON app_user.id = member.user_id
+      WHERE member.project_id = $1
+        AND ($2 = '' OR app_user.name ILIKE '%' || $2 || '%' OR app_user.email ILIKE '%' || $2 || '%')
+      ORDER BY app_user.name, app_user.email
+      LIMIT 30`,
+    [projectId, search],
+  );
+  return result.rows;
+}
+
+async function hasAnyAdminMembership(userId, client = pool) {
+  const result = await client.query(
+    `SELECT EXISTS (
+       SELECT 1 FROM project_members WHERE user_id = $1 AND project_role = 'admin'
+     ) AS is_admin`,
+    [userId],
+  );
+  return result.rows[0].is_admin;
+}
+
 async function add(projectId, userId, projectRole, client = pool) {
   const result = await client.query(
     `INSERT INTO project_members (project_id, user_id, project_role)
@@ -78,7 +102,9 @@ module.exports = {
   add,
   findRoleByIssueKey,
   findRoleByProjectId,
+  hasAnyAdminMembership,
   list,
   remove,
   updateRole,
+  searchAssignees,
 };

@@ -2,6 +2,7 @@ const issueRepository = require('../repositories/issue.repository');
 const issueSequenceRepository = require('../repositories/issueSequence.repository');
 const issueStatusHistoryRepository = require('../repositories/issueStatusHistory.repository');
 const issueTypeRepository = require('../repositories/issueType.repository');
+const memberRepository = require('../repositories/member.repository');
 const projectRepository = require('../repositories/project.repository');
 const workflowStatusRepository = require('../repositories/workflowStatus.repository');
 const HttpError = require('../utils/httpError');
@@ -27,8 +28,14 @@ async function createIssue(projectId, data, reporterId) {
       if (!await issueTypeRepository.findById(projectId, data.issueTypeId, client)) {
         throw new HttpError(400, 'ISSUE_TYPE_PROJECT_MISMATCH', 'Issue type does not belong to this project');
       }
-      const defaultStatus = await workflowStatusRepository.findDefault(projectId, client);
-      if (!defaultStatus) {
+      if (data.assigneeId !== null && !await memberRepository.findRoleByProjectId(projectId, data.assigneeId, client)) {
+        throw new HttpError(400, 'ASSIGNEE_PROJECT_MISMATCH', 'Assignee must be a member of this project');
+      }
+      const selectedStatus = data.statusId === null
+        ? await workflowStatusRepository.findDefault(projectId, client)
+        : await workflowStatusRepository.findById(projectId, data.statusId, client);
+      if (!selectedStatus) {
+        if (data.statusId !== null) throw new HttpError(400, 'STATUS_PROJECT_MISMATCH', 'Workflow status does not belong to this project');
         throw new HttpError(409, 'DEFAULT_STATUS_MISSING', 'Project does not have a default workflow status');
       }
 
@@ -39,16 +46,17 @@ async function createIssue(projectId, data, reporterId) {
         title: data.title,
         description: data.description,
         issueTypeId: data.issueTypeId,
-        statusId: defaultStatus.id,
+        statusId: selectedStatus.id,
         reporterId,
         assigneeId: data.assigneeId,
         priority: data.priority,
+        dueDate: data.dueDate,
         metadata: {},
       }, client);
       await issueStatusHistoryRepository.create({
         issueId: issue.id,
         fromStatusId: null,
-        toStatusId: defaultStatus.id,
+        toStatusId: selectedStatus.id,
         changedBy: reporterId,
       }, client);
       return issue;
@@ -78,6 +86,9 @@ async function updateIssue(issueKey, changes) {
       }
       if (changes.issueTypeId !== undefined && !await issueTypeRepository.findById(current.project_id, changes.issueTypeId, client)) {
         throw new HttpError(400, 'ISSUE_TYPE_PROJECT_MISMATCH', 'Issue type does not belong to this project');
+      }
+      if (changes.assigneeId !== undefined && changes.assigneeId !== null && !await memberRepository.findRoleByProjectId(current.project_id, changes.assigneeId, client)) {
+        throw new HttpError(400, 'ASSIGNEE_PROJECT_MISMATCH', 'Assignee must be a member of this project');
       }
       return issueRepository.update(issueKey, changes, client);
     });

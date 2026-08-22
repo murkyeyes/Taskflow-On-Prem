@@ -7,6 +7,10 @@ export const updateProject = (projectId, data) => apiRequest(`/projects/${projec
 export const deleteProject = (projectId) => apiRequest(`/projects/${projectId}`, { method: 'DELETE' });
 
 export const listMembers = (projectId) => apiRequest(`/projects/${projectId}/members`);
+export const listAssignees = (projectId, search = '') => {
+  const query = search ? `?${new URLSearchParams({ search })}` : '';
+  return apiRequest(`/projects/${projectId}/assignees${query}`);
+};
 export const addMember = (projectId, data) => apiRequest(`/projects/${projectId}/members`, { method: 'POST', body: jsonBody(data) });
 export const updateMember = (projectId, userId, data) => apiRequest(`/projects/${projectId}/members/${userId}`, { method: 'PATCH', body: jsonBody(data) });
 export const deleteMember = (projectId, userId) => apiRequest(`/projects/${projectId}/members/${userId}`, { method: 'DELETE' });

@@ -474,6 +474,36 @@ Chỉ thực hiện nếu khách cần truy cập ngoài LAN.
 
 ---
 
+## Phase 13 — Approved board controls and admin account provisioning
+
+> User-approved specification expansion dated 2026-08-22. This phase follows Phase 12 and does not alter the required stack or 14-table schema.
+
+### 13.1 Authoritative documents
+
+- [x] Update `RULES.md` and both System Design documents with the board controls, assignee lookup, sprint completion, and admin-only provisioning contract
+- [x] Confirm public registration removal and use the existing project-admin RBAC model without adding a global-role table
+
+### 13.2 Backend behavior
+
+- [x] Require authentication plus existing project-admin authority for account creation; preserve bootstrap provisioning outside public UI
+- [x] Add project-member assignee lookup by account name/email and enforce project membership for issue assignees
+- [x] Add issue search and create fields for status/due date while preserving atomic key/history creation
+- [x] Add transactional active-sprint completion that returns incomplete work to the backlog
+
+### 13.3 Board and settings UI
+
+- [x] Replace numeric assignee entry with account-name search in issue creation/editing
+- [x] Add functional board search, filters, grouping, per-column inline create, and admin-only add-column controls
+- [x] Add functional active-sprint completion action with returned result feedback
+- [x] Remove public register UI and provide admin-only account provisioning in Project Settings
+
+### 13.4 Verification and packaging
+
+- [x] Add/adjust backend tests for authorization, assignee ownership, board query behavior, and sprint completion
+- [x] Run backend unit/integration suites, frontend production build, Docker/Caddy API smoke tests, and refresh `frontend-dist/`
+
+---
+
 ## Completion rule
 
 

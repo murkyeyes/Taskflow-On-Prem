@@ -563,3 +563,11 @@ All resource identifiers must be verified as belonging to `projectId`. SQL stays
 Project routes are `/projects/:projectId/summary`, `/backlog`, `/board`, `/timeline`, `/development`, `/docs`, `/forms`, and `/settings`. `/projects/:projectId` remains compatible and redirects to the board or summary.
 
 The React project adds `components/layout/WorkspaceShell.jsx`, `Sidebar.jsx`, `ProjectHeader.jsx`, `ProjectTabs.jsx`, plus one page component for each route above. The shell provides the Jira-style dark visual system and a functional collapsible sidebar. Summary uses native CSS/SVG rather than a new chart framework. Every tab must load real API data and all mutating controls must respect the current project role.
+
+## 6. Board controls and Admin Account Provisioning Expansion (2026-08-22)
+
+This approved expansion keeps the same 14-table schema and technology stack. Public self-registration is removed: `POST /api/auth/register` requires an authenticated user who is an `admin` member of at least one project. Initial deployment creates the bootstrap administrator via the approved seed/deployment process. The Project Settings page is the only UI that exposes account creation, and only to a project administrator.
+
+`GET /api/projects/:projectId/assignees?search=` returns project members whose account name or email matches case-insensitively. It is used by the board issue composer and assignee filter; an issue may only be assigned to a member of its project. `GET /api/projects/:projectId/issues?search=` matches issue key/title case-insensitively.
+
+The board provides search, assignee/status/priority filters, grouping, inline creation in a chosen workflow column, and an admin-only workflow-column creator. `POST /api/projects/:projectId/sprints/:sprintId/complete` is member/admin only and runs in one transaction: lock the project's sprints, verify that the target is active, mark it completed, then remove the sprint from each non-final issue while touching `updated_at`. It returns the completed sprint and the count moved back to the backlog. Creating an issue can accept optional `statusId` and `dueDate`; the initial history row records that supplied/default status.

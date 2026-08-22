@@ -31,6 +31,10 @@ async function list(projectId, filters, pagination, client = pool) {
       conditions.push(`issue.${column} = $${values.length}`);
     }
   }
+  if (filters.search !== null) {
+    values.push(filters.search);
+    conditions.push(`(issue.issue_key ILIKE '%' || $${values.length} || '%' OR issue.title ILIKE '%' || $${values.length} || '%')`);
+  }
 
   const where = conditions.join(' AND ');
   const countResult = await client.query(
@@ -56,12 +60,10 @@ async function create(data, client = pool) {
   const result = await client.query(
     `INSERT INTO issues (
         project_id, issue_key, title, description, issue_type_id,
-        status_id, reporter_id, assignee_id, priority, metadata
+        status_id, reporter_id, assignee_id, priority, metadata, due_date
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     RETURNING id, project_id, issue_key, title, description, issue_type_id,
-               status_id, reporter_id, assignee_id, priority, metadata,
-               created_at, updated_at`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     RETURNING ${issueColumns.replaceAll('issue.', '')}`,
     [
       data.projectId,
       data.issueKey,
@@ -73,6 +75,7 @@ async function create(data, client = pool) {
       data.assigneeId,
       data.priority,
       data.metadata,
+      data.dueDate,
     ],
   );
   return result.rows[0];
@@ -107,11 +110,10 @@ async function update(issueKey, changes, client = pool) {
             assignee_id = CASE WHEN $6 THEN $7 ELSE assignee_id END,
             priority = CASE WHEN $8 THEN $9 ELSE priority END,
             issue_type_id = CASE WHEN $10 THEN $11 ELSE issue_type_id END,
+            due_date = CASE WHEN $12 THEN $13 ELSE due_date END,
             updated_at = now()
       WHERE issue_key = $1
-      RETURNING id, project_id, issue_key, title, description, issue_type_id,
-                status_id, reporter_id, assignee_id, priority, metadata,
-                created_at, updated_at`,
+      RETURNING ${issueColumns.replaceAll('issue.', '')}`,
     [
       issueKey,
       Object.hasOwn(changes, 'title'), changes.title ?? null,
@@ -119,6 +121,7 @@ async function update(issueKey, changes, client = pool) {
       Object.hasOwn(changes, 'assigneeId'), changes.assigneeId ?? null,
       Object.hasOwn(changes, 'priority'), changes.priority ?? null,
       Object.hasOwn(changes, 'issueTypeId'), changes.issueTypeId ?? null,
+      Object.hasOwn(changes, 'dueDate'), changes.dueDate ?? null,
     ],
   );
   return result.rows[0] ?? null;
@@ -130,9 +133,7 @@ async function updateStatus(issueKey, statusId, client = pool) {
         SET status_id = $2,
             updated_at = now()
       WHERE issue_key = $1
-      RETURNING id, project_id, issue_key, title, description, issue_type_id,
-                status_id, reporter_id, assignee_id, priority, metadata,
-                created_at, updated_at`,
+      RETURNING ${issueColumns.replaceAll('issue.', '')}`,
     [issueKey, statusId],
   );
   return result.rows[0] ?? null;

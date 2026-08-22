@@ -12,11 +12,20 @@ const {
 
 const priorities = ['lowest', 'low', 'medium', 'high', 'highest'];
 
+function optionalDate(value, fieldName) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
+    throw new HttpError(400, 'VALIDATION_ERROR', `${fieldName} must be an ISO date (YYYY-MM-DD)`);
+  }
+  return value;
+}
+
 async function list(request, response) {
   const filters = {
     statusId: optionalInteger(request.query.status_id, 'status_id', { min: 1 }),
     assigneeId: optionalInteger(request.query.assignee_id, 'assignee_id', { min: 1 }),
     issueTypeId: optionalInteger(request.query.issue_type_id, 'issue_type_id', { min: 1 }),
+    search: optionalString(request.query.search, 'search', { min: 1, max: 120 }),
   };
   response.json(await issueService.listIssues(request.projectId, filters, parsePagination(request.query)));
 }
@@ -28,6 +37,8 @@ async function create(request, response) {
     description: optionalString(body.description, 'description', { min: 1, max: 50_000 }),
     issueTypeId: requireInteger(body.issueTypeId, 'issueTypeId', { min: 1 }),
     assigneeId: optionalInteger(body.assigneeId, 'assigneeId', { min: 1 }),
+    statusId: optionalInteger(body.statusId, 'statusId', { min: 1 }),
+    dueDate: optionalDate(body.dueDate, 'dueDate'),
     priority: body.priority === undefined ? 'medium' : requireEnum(body.priority, 'priority', priorities),
   }, request.user.userId);
   response.status(201).json({ issue });
@@ -45,6 +56,7 @@ async function update(request, response) {
   if (body.assigneeId !== undefined) changes.assigneeId = optionalInteger(body.assigneeId, 'assigneeId', { min: 1 });
   if (body.priority !== undefined) changes.priority = requireEnum(body.priority, 'priority', priorities);
   if (body.issueTypeId !== undefined) changes.issueTypeId = requireInteger(body.issueTypeId, 'issueTypeId', { min: 1 });
+  if (body.dueDate !== undefined) changes.dueDate = optionalDate(body.dueDate, 'dueDate');
   if (Object.keys(changes).length === 0) {
     throw new HttpError(400, 'VALIDATION_ERROR', 'At least one issue field must be provided');
   }

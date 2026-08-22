@@ -33,6 +33,19 @@ async function updatePlanning(issueKey, projectId, data) {
   return issue;
 }
 
+async function completeSprint(projectId, sprintId) {
+  return withTransaction(async (client) => {
+    await workspaceRepository.lockSprints(projectId, client);
+    const result = await workspaceRepository.completeSprint(projectId, sprintId, client);
+    if (!result) {
+      const sprint = await workspaceRepository.findSprint(projectId, sprintId, client);
+      if (!sprint) throw notFound('Sprint');
+      throw new HttpError(409, 'SPRINT_NOT_ACTIVE', 'Only an active sprint can be completed');
+    }
+    return result;
+  });
+}
+
 async function createDevelopmentLink(projectId, data, userId) {
   let issueId = null;
   if (data.issueKey) {
@@ -58,6 +71,7 @@ async function submitForm(projectId, formId, answers, userId) {
 
 module.exports = {
   createDevelopmentLink,
+  completeSprint,
   createDoc: (projectId, data, userId) => workspaceRepository.createDoc(projectId, data, userId),
   createForm: (projectId, data, userId) => workspaceRepository.createForm(projectId, data, userId),
   createSprint: (projectId, data, userId) => saveSprint(projectId, null, data, userId),

@@ -35,6 +35,18 @@ function requireRole(allowedRoles) {
   };
 }
 
+async function requireAccountAdmin(request, response, next) {
+  try {
+    if (!await memberRepository.hasAnyAdminMembership(request.user.userId)) {
+      throw new HttpError(403, 'FORBIDDEN', 'Only project administrators can create accounts');
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   requireRole,
+  requireAccountAdmin,
 };

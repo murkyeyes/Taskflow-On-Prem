@@ -42,6 +42,7 @@ async function listSprints(req, res) { res.json({ sprints: await workspaceServic
 async function createSprint(req, res) { res.status(201).json({ sprint: await workspaceService.createSprint(req.projectId, sprintBody(req.body), req.user.userId) }); }
 async function updateSprint(req, res) { res.json({ sprint: await workspaceService.updateSprint(req.projectId, requireInteger(req.params.sprintId, 'sprintId', { min: 1 }), sprintBody(req.body, true), req.user.userId) }); }
 async function deleteSprint(req, res) { await workspaceService.deleteSprint(req.projectId, requireInteger(req.params.sprintId, 'sprintId', { min: 1 })); res.status(204).send(); }
+async function completeSprint(req, res) { res.json(await workspaceService.completeSprint(req.projectId, requireInteger(req.params.sprintId, 'sprintId', { min: 1 }))); }
 
 async function updatePlanning(req, res) {
   const body = requireObject(req.body); const data = {};
@@ -89,4 +90,4 @@ async function deleteForm(req, res) { await workspaceService.deleteForm(req.proj
 async function submitForm(req, res) { const body = requireObject(req.body); const answers = requireObject(body.answers, 'answers'); res.status(201).json({ submission: await workspaceService.submitForm(req.projectId, requireInteger(req.params.formId, 'formId', { min: 1 }), answers, req.user.userId) }); }
 async function listSubmissions(req, res) { res.json({ submissions: await workspaceService.listSubmissions(req.projectId, requireInteger(req.params.formId, 'formId', { min: 1 })) }); }
 
-module.exports = { createDevelopment, createDoc, createForm, createSprint, deleteDevelopment, deleteDoc, deleteForm, deleteSprint, getDoc, getForm, listDevelopment, listDocs, listForms, listSprints, listSubmissions, submitForm, summary, updateDoc, updateForm, updatePlanning, updateSprint };
+module.exports = { completeSprint, createDevelopment, createDoc, createForm, createSprint, deleteDevelopment, deleteDoc, deleteForm, deleteSprint, getDoc, getForm, listDevelopment, listDocs, listForms, listSprints, listSubmissions, submitForm, summary, updateDoc, updateForm, updatePlanning, updateSprint };

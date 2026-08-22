@@ -1,6 +1,9 @@
 import IssueCard from './IssueCard';
+import { useState } from 'react';
+import IssueForm from '../issue/IssueForm';
 
-export default function StatusColumn({ status, issues, statuses, canEdit, onStatusChange }) {
+export default function StatusColumn({ status, issues, statuses, canEdit, onStatusChange, issueTypes, assignees, onCreate }) {
+  const [creating, setCreating] = useState(false);
   return (
     <section className="status-column">
       <header>
@@ -17,7 +20,9 @@ export default function StatusColumn({ status, issues, statuses, canEdit, onStat
             onStatusChange={onStatusChange}
           />
         ))}
+        {canEdit && creating && <IssueForm compact issueTypes={issueTypes} assignees={assignees} defaultStatusId={status.id} submitLabel={`Create in ${status.name}`} onCancel={() => setCreating(false)} onSubmit={async (data) => { await onCreate(data); setCreating(false); }} />}
       </div>
+      {canEdit && <button className="link-button board-create" type="button" onClick={() => setCreating((value) => !value)}>+ Create</button>}
     </section>
   );
 }
