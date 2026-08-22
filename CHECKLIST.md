@@ -614,6 +614,30 @@ Chỉ thực hiện nếu khách cần truy cập ngoài LAN.
 
 ---
 
+## Phase 18 — Dedicated account and Space-access administration
+
+> User-requested separation of account provisioning from Space settings dated 2026-08-22.
+
+### 18.1 Specification and navigation
+
+- [x] Update `RULES.md` and both System Design documents for a dedicated Admin-only `/teams` feature
+- [x] Route the Admin sidebar Teams item to `/teams` and hide it from non-admin accounts
+- [x] Remove account provisioning and viewer membership controls from individual Space settings
+
+### 18.2 Account and access management
+
+- [x] Provide independent account creation on `/teams`
+- [x] Search and select existing accounts by name or email
+- [x] Grant viewer access to selected Spaces and revoke non-admin Space assignments
+- [x] Preserve application/Space administrator access against UI revocation
+
+### 18.3 Verification and packaging
+
+- [x] Run PostgreSQL-backed account/Space-access authorization tests and the frontend production build
+- [x] Refresh `frontend-dist/`, deploy through Caddy, and browser-test `/teams` route protection without console errors
+
+---
+
 ## Completion rule
 
 

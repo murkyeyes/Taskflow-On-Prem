@@ -410,7 +410,8 @@ frontend/
 │   │   ├── ProjectListPage.jsx
 │   │   ├── ProjectBoardPage.jsx    # board with columns based on the project's workflow_statuses
 │   │   ├── IssueDetailPage.jsx     # issue details + comments
-│   │   └── ProjectSettingsPage.jsx # manage issue_types/workflow_statuses/members (admin)
+│   │   ├── ProjectSettingsPage.jsx # manage issue_types/workflow_statuses (admin)
+│   │   └── TeamsPage.jsx           # global account provisioning and Space access (application admin)
 │   │
 │   ├── components/
 │   │   ├── board/
@@ -567,9 +568,9 @@ The React project adds `components/layout/WorkspaceShell.jsx`, `Sidebar.jsx`, `P
 
 ## 6. Board controls and Admin Account Provisioning Expansion (2026-08-22)
 
-This approved expansion keeps the same 14-table schema and technology stack. Public self-registration is removed: `POST /api/auth/register` requires an authenticated user who is an `admin` member of at least one project. Initial deployment creates the bootstrap administrator via the approved seed/deployment process. The Project Settings page is the only UI that exposes account creation, and only to a project administrator.
+This approved expansion keeps the same 14-table schema and technology stack. Public self-registration is removed: `POST /api/auth/register` requires an authenticated user who is an `admin` member of at least one project. Initial deployment creates the bootstrap administrator via the approved seed/deployment process. The dedicated `/teams` application-administration page is the only UI that exposes account creation and cross-Space access management. Account provisioning is independent from Space membership: after creation, an application Admin explicitly grants existing accounts viewer access to selected Spaces or revokes non-admin assignments. Project Settings contains only Space workflow configuration.
 
-`GET /api/projects/:projectId/assignees?search=` returns project members whose account name or email matches case-insensitively. It is used by the board issue composer and assignee filter; an issue may only be assigned to a member of its project. `GET /api/projects/:projectId/issues?search=` matches issue key/title case-insensitively.
+`GET /api/projects/:projectId/assignees?search=` returns project members whose account name or email matches case-insensitively. It is used by the board issue composer and assignee filter; an issue may only be assigned to a member of its project. `GET /api/projects/:projectId/issues?search=` matches issue key/title case-insensitively. `/teams` uses the existing Admin-only `GET /api/auth/users?search=`, membership list/create/delete endpoints, and never exposes administrator-membership revocation.
 
 The board provides search, an assignee-name typeahead/filter backed by `GET /api/projects/:projectId/assignees?search=`, assignee/status/priority filters, grouping, inline creation in a chosen workflow column, and an admin-only workflow-column creator. Typing a partial member name narrows suggestions and visible cards; selecting a suggestion applies the exact assignee filter, while `Everyone`/Clear filters removes it. `POST /api/projects/:projectId/sprints/:sprintId/complete` is member/admin only and runs in one transaction: lock the project's sprints, verify that the target is active, mark it completed, then remove the sprint from each non-final issue while touching `updated_at`. It returns the completed sprint and the count moved back to the backlog. Creating an issue can accept optional `statusId` and `dueDate`; the initial history row records that supplied/default status.
 
@@ -579,7 +580,7 @@ The product term is **Space**. To preserve database and API compatibility, a Spa
 
 Only an authenticated account that has `project_role = 'admin'` in at least one Space may call `POST /api/projects`. The request may include a unique `viewerIds` array of existing user IDs. Space creation, creator-admin membership, viewer memberships, issue-key sequence, default issue types, and default workflow statuses are committed in one transaction. Any invalid account ID rolls back the entire operation.
 
-New assignments are always `viewer`. `POST` and `PATCH /api/projects/:projectId/members...` reject attempts to grant `member` or `admin`; legacy rows remain readable for compatibility. `GET /api/auth/users?search=` is admin-only and returns public account fields for the Space creator/settings account picker.
+New assignments are always `viewer`. `POST` and `PATCH /api/projects/:projectId/members...` reject attempts to grant `member` or `admin`; legacy rows remain readable for compatibility. `GET /api/auth/users?search=` is admin-only and returns public account fields for the Space creator and dedicated `/teams` account/access manager.
 
 Space isolation is enforced through the existing RBAC middleware. A non-admin viewer lists only assigned Spaces, and direct requests to any unassigned Space, issue, comment, workspace document, form, sprint, or development resource fail with `403`. Viewers cannot mutate Space data. Section 8 expands application Admin visibility without changing the schema.
 

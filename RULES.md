@@ -408,7 +408,7 @@ Polling nên được gom vào hook/service tương ứng như `usePolling`.
 - Trạng thái thu gọn sidebar có thể lưu trong React state/localStorage; JWT vẫn tuyệt đối không được lưu trong localStorage.
 - Summary phải lấy aggregate thật từ API; Backlog/Timeline/Development/Docs/Forms phải đọc/ghi dữ liệu thật theo RBAC.
 - Không thêm chart framework lớn; ưu tiên CSS/SVG/HTML thuần.
-- Login chỉ mô phỏng visual language của Jira và giữ email/password; public register UI/API bị loại bỏ. Chỉ project admin mới có thể tạo tài khoản qua settings; không thêm OAuth/social login nếu chưa được phê duyệt riêng.
+- Login chỉ mô phỏng visual language của Jira và giữ email/password; public register UI/API bị loại bỏ. Account provisioning và phân quyền truy cập Space phải nằm trong trang Admin riêng `/teams`, không nằm trong settings của một Space. Chỉ application Admin được tạo tài khoản, gán account hiện có vào một hoặc nhiều Space với quyền viewer, hoặc thu hồi các assignment không phải admin; không thêm OAuth/social login nếu chưa được phê duyệt riêng.
 - Board phải có server-backed search, assignee-by-account-name lookup/filter, filter/group controls, ngày tạo/ngày hoàn thành, inline create theo workflow column, admin-only add-column control, và complete-active-sprint action. Trường Assignee phải hỗ trợ gõ một phần hoặc toàn bộ tên account để lọc danh sách gợi ý và các card; chọn một gợi ý sẽ áp dụng bộ lọc chính xác, còn Everyone/Clear filters sẽ xoá bộ lọc. Card phải hiển thị assignee ngay dưới title cùng created/completed dates. Create issue phải hỗ trợ optional status, due date và project-member assignee; backend phải xác minh membership, self-assignment của Member và completed-lock.
 
 ### 9.2 Build output và production static folder

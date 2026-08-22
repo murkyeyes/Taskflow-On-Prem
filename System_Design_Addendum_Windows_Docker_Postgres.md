@@ -234,3 +234,7 @@ The home/sidebar expansion also requires no migration or container change. Deplo
 ## 11. Issue completion migration note (2026-08-22)
 
 Apply `backend/src/db/migrations/003-issue-completion.sql` once to an existing PostgreSQL volume before starting the updated application. Fresh databases receive the same `completed_at` column and indexes from `schema.sql`. Backfill sets `completed_at` from the latest transition into the issue's current final status. Deploy backend and frontend together, then verify created/completed day filters, assignee-name display, member self-assignment, completed-member `403`, and Admin reopen/edit.
+
+## 12. Dedicated account and Space-access administration (2026-08-22)
+
+The `/teams` administration feature reuses `users`, `projects`, `project_members`, and the existing authenticated account/member APIs. It requires no database migration, container, host port, or dependency. Deploy the rebuilt React assets through Caddy. Verify that only an application Admin sees Teams, account provisioning remains authenticated, viewer access can be granted and revoked per Space, administrator memberships cannot be revoked from the UI, and individual Space settings no longer contain account or membership controls.

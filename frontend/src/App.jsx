@@ -15,6 +15,7 @@ import ProjectDevelopmentPage from './pages/ProjectDevelopmentPage';
 import ProjectDocsPage from './pages/ProjectDocsPage';
 import ProjectFormsPage from './pages/ProjectFormsPage';
 import WorkspaceShell from './components/layout/WorkspaceShell';
+import TeamsPage from './pages/TeamsPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -32,6 +33,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
       <Route path="/spaces/new" element={<ProtectedRoute><CreateSpacePage /></ProtectedRoute>} />
+      <Route path="/teams" element={<ProtectedRoute><TeamsPage /></ProtectedRoute>} />
       <Route path="/projects" element={<Navigate to="/" replace />} />
       <Route path="/projects/:projectId" element={<ProtectedRoute><WorkspaceShell /></ProtectedRoute>}>
         <Route index element={<Navigate to="summary" replace />} />

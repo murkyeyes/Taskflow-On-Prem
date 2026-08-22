@@ -28,7 +28,7 @@ export default function Sidebar({ collapsed, onToggle, project, spaces = [] }) {
         </div>;
       })}</div>
       <NavLink to={project ? `${projectBase}/summary` : '/'}><span>▦</span><b>Dashboards</b></NavLink>
-      <NavLink to={project ? `${projectBase}/settings` : '/'}><span>♚</span><b>Teams</b></NavLink>
+      {canCreate && <NavLink to="/teams"><span>♚</span><b>Teams</b></NavLink>}
     </nav>
   </aside>;
 }
