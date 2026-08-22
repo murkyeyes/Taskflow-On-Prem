@@ -17,6 +17,8 @@ test('Jira workspace APIs persist data and enforce ownership and RBAC', { skip: 
       [role, `${role}@workspace.test`, 'unused'],
     )).rows[0].id;
   }
+  const bootstrapId = (await pool.query("INSERT INTO projects (key,name,created_by) VALUES ('BOOT','Bootstrap Space',$1) RETURNING id", [users.admin])).rows[0].id;
+  await pool.query("INSERT INTO project_members (project_id,user_id,project_role) VALUES ($1,$2,'admin')", [bootstrapId, users.admin]);
   const cookie = (role) => `token=${jwt.sign({ sub: String(users[role]) }, env.jwtSecret, { algorithm: 'HS256', expiresIn: '1h' })}`;
   const server = startServer(0); await new Promise((resolve) => server.once('listening', resolve));
   context.after(async () => { await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); await pool.end(); });
@@ -24,7 +26,7 @@ test('Jira workspace APIs persist data and enforce ownership and RBAC', { skip: 
   const request = (role, path, method = 'GET', body) => fetch(`${base}${path}`, { method, headers: { cookie: cookie(role), ...(body === undefined ? {} : { 'content-type': 'application/json' }) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 
   const project = (await (await request('admin', '/projects', 'POST', { key: 'WORK', name: 'Workspace' })).json()).project;
-  for (const role of ['member', 'viewer']) assert.equal((await request('admin', `/projects/${project.id}/members`, 'POST', { userId: users[role], projectRole: role })).status, 201);
+  await pool.query("INSERT INTO project_members (project_id,user_id,project_role) VALUES ($1,$2,'member'),($1,$3,'viewer')", [project.id, users.member, users.viewer]);
   const type = (await (await request('admin', `/projects/${project.id}/issue-types`)).json()).issueTypes[0];
   const issue = (await (await request('member', `/projects/${project.id}/issues`, 'POST', { title: 'Plan this work', issueTypeId: type.id })).json()).issue;
 

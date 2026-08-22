@@ -49,9 +49,16 @@ async function me(request, response) {
   response.json({ user });
 }
 
+async function listUsers(request, response) {
+  const rawSearch = request.query.search;
+  const search = rawSearch === undefined || rawSearch === '' ? '' : requireString(rawSearch, 'search', { min: 1, max: 120 });
+  response.json({ users: await authService.listUsers(search) });
+}
+
 module.exports = {
   login,
   logout,
+  listUsers,
   me,
   register,
 };

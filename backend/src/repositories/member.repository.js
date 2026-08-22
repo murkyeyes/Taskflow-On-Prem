@@ -24,6 +24,48 @@ async function findRoleByIssueKey(issueKey, userId, client = pool) {
   return result.rows[0] ?? null;
 }
 
+async function findEffectiveRoleByProjectId(projectId, userId, client = pool) {
+  const result = await client.query(
+    `WITH account_access AS (
+       SELECT EXISTS (
+         SELECT 1 FROM project_members WHERE user_id = $2 AND project_role = 'admin'
+       ) AS is_admin
+     )
+     SELECT project.id AS project_id,
+            CASE WHEN account_access.is_admin THEN 'admin' ELSE member.project_role END AS project_role
+       FROM projects AS project
+       CROSS JOIN account_access
+       LEFT JOIN project_members AS member
+         ON member.project_id = project.id
+        AND member.user_id = $2
+      WHERE project.id = $1
+        AND (account_access.is_admin OR member.user_id IS NOT NULL)`,
+    [projectId, userId],
+  );
+  return result.rows[0] ?? null;
+}
+
+async function findEffectiveRoleByIssueKey(issueKey, userId, client = pool) {
+  const result = await client.query(
+    `WITH account_access AS (
+       SELECT EXISTS (
+         SELECT 1 FROM project_members WHERE user_id = $2 AND project_role = 'admin'
+       ) AS is_admin
+     )
+     SELECT issue.project_id,
+            CASE WHEN account_access.is_admin THEN 'admin' ELSE member.project_role END AS project_role
+       FROM issues AS issue
+       CROSS JOIN account_access
+       LEFT JOIN project_members AS member
+         ON member.project_id = issue.project_id
+        AND member.user_id = $2
+      WHERE issue.issue_key = $1
+        AND (account_access.is_admin OR member.user_id IS NOT NULL)`,
+    [issueKey, userId],
+  );
+  return result.rows[0] ?? null;
+}
+
 async function list(projectId, client = pool) {
   const result = await client.query(
     `SELECT member.project_id,
@@ -100,6 +142,8 @@ async function remove(projectId, userId, client = pool) {
 
 module.exports = {
   add,
+  findEffectiveRoleByIssueKey,
+  findEffectiveRoleByProjectId,
   findRoleByIssueKey,
   findRoleByProjectId,
   hasAnyAdminMembership,

@@ -14,10 +14,10 @@ function requireRole(allowedRoles) {
       let membership;
       if (request.params.projectId !== undefined) {
         const projectId = requireInteger(request.params.projectId, 'projectId', { min: 1 });
-        membership = await memberRepository.findRoleByProjectId(projectId, request.user.userId);
+        membership = await memberRepository.findEffectiveRoleByProjectId(projectId, request.user.userId);
       } else if (request.params.issueKey !== undefined) {
         const issueKey = requireString(request.params.issueKey, 'issueKey', { min: 3, max: 20 });
-        membership = await memberRepository.findRoleByIssueKey(issueKey, request.user.userId);
+        membership = await memberRepository.findEffectiveRoleByIssueKey(issueKey, request.user.userId);
       } else {
         throw new HttpError(500, 'RBAC_CONTEXT_MISSING', 'Project authorization context is missing');
       }

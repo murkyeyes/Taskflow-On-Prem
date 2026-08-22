@@ -1,4 +1,5 @@
 const memberService = require('../services/member.service');
+const HttpError = require('../utils/httpError');
 const {
   optionalString,
   requireEnum,
@@ -22,20 +23,24 @@ async function assignees(request, response) {
 
 async function create(request, response) {
   const body = requireObject(request.body);
+  const projectRole = requireEnum(body.projectRole, 'projectRole', roles);
+  if (projectRole !== 'viewer') throw new HttpError(400, 'VIEWER_ONLY_ASSIGNMENT', 'New Space assignments must use viewer role');
   const member = await memberService.addMember(
     request.projectId,
     requireInteger(body.userId, 'userId', { min: 1 }),
-    requireEnum(body.projectRole, 'projectRole', roles),
+    projectRole,
   );
   response.status(201).json({ member });
 }
 
 async function update(request, response) {
   const body = requireObject(request.body);
+  const projectRole = requireEnum(body.projectRole, 'projectRole', roles);
+  if (projectRole !== 'viewer') throw new HttpError(400, 'VIEWER_ONLY_ASSIGNMENT', 'Space assignments must remain viewer-only');
   const member = await memberService.updateMember(
     request.projectId,
     requireInteger(request.params.userId, 'userId', { min: 1 }),
-    requireEnum(body.projectRole, 'projectRole', roles),
+    projectRole,
   );
   response.json({ member });
 }

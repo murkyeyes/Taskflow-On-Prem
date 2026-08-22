@@ -5,6 +5,7 @@ const issueTypeRepository = require('../repositories/issueType.repository');
 const memberRepository = require('../repositories/member.repository');
 const projectRepository = require('../repositories/project.repository');
 const workflowStatusRepository = require('../repositories/workflowStatus.repository');
+const userRepository = require('../repositories/user.repository');
 const HttpError = require('../utils/httpError');
 const withTransaction = require('../utils/withTransaction');
 
@@ -20,6 +21,12 @@ async function createProject(data, userId, defaults = {}) {
     return await withTransaction(async (client) => {
       const project = await projectRepository.create({ ...data, createdBy: userId }, client);
       await memberRepository.add(project.id, userId, 'admin', client);
+      const viewerIds = (data.viewerIds ?? []).filter((id) => id !== userId);
+      const existingViewerIds = await userRepository.findExistingIds(viewerIds, client);
+      if (existingViewerIds.length !== viewerIds.length) {
+        throw new HttpError(400, 'VIEWER_ACCOUNT_NOT_FOUND', 'One or more selected viewer accounts do not exist');
+      }
+      for (const viewerId of viewerIds) await memberRepository.add(project.id, viewerId, 'viewer', client);
       await issueSequenceRepository.initialize(client, project.id);
 
       for (const issueType of issueTypes) {

@@ -222,3 +222,11 @@ No additional host ports, Windows services, Docker services, persistent WebSocke
 ## 8. Board Controls and Account Provisioning Deployment (approved 2026-08-22)
 
 This expansion requires no new service, host port, or table. Before deploying it, ensure the approved bootstrap administrator exists; public registration is disabled and account creation thereafter is performed by authenticated project administrators through the existing API/Caddy path. Deploy the rebuilt backend and static frontend together so board controls and their API contract remain in sync. The sprint-completion operation is transactional in PostgreSQL and requires the existing database backup procedure before rollout.
+
+## 9. Space Access Isolation Deployment (approved 2026-08-22)
+
+The Space terminology and viewer-assignment expansion reuses the `projects` and `project_members` tables, so no migration or additional container is required. Backend and frontend must be deployed together because `POST /api/projects` gains atomic `viewerIds` handling and becomes admin-only. Existing data is preserved. After deployment, verify with separate admin/viewer accounts that viewers list and open only assigned Spaces, receive `403` for unassigned Space IDs, and cannot perform mutations.
+
+## 10. Unified Space home/sidebar deployment note (2026-08-22)
+
+The home/sidebar expansion also requires no migration or container change. Deploy the backend RBAC/list-query update and the frontend route/sidebar update together. Verify that `/projects` redirects to `/`, login lands on `/`, an Admin sees every Space and can open `/spaces/new`, and a non-admin sees only assigned Spaces with no creation control. The same Space count/list must appear on the home screen and workspace sidebar.

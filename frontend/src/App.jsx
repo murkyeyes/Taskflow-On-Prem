@@ -5,7 +5,8 @@ import useAuth from './hooks/useAuth';
 import IssueDetailPage from './pages/IssueDetailPage';
 import LoginPage from './pages/LoginPage';
 import ProjectBoardPage from './pages/ProjectBoardPage';
-import ProjectListPage from './pages/ProjectListPage';
+import HomePage from './pages/HomePage';
+import CreateSpacePage from './pages/CreateSpacePage';
 import ProjectSettingsPage from './pages/ProjectSettingsPage';
 import ProjectSummaryPage from './pages/ProjectSummaryPage';
 import ProjectBacklogPage from './pages/ProjectBacklogPage';
@@ -29,7 +30,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/projects" element={<ProtectedRoute><Shell><ProjectListPage /></Shell></ProtectedRoute>} />
+      <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+      <Route path="/spaces/new" element={<ProtectedRoute><CreateSpacePage /></ProtectedRoute>} />
+      <Route path="/projects" element={<Navigate to="/" replace />} />
       <Route path="/projects/:projectId" element={<ProtectedRoute><WorkspaceShell /></ProtectedRoute>}>
         <Route index element={<Navigate to="summary" replace />} />
         <Route path="summary" element={<ProjectSummaryPage />} />
@@ -42,7 +45,7 @@ export default function App() {
         <Route path="settings" element={<ProjectSettingsPage />} />
       </Route>
       <Route path="/issues/:issueKey" element={<ProtectedRoute><Shell><IssueDetailPage /></Shell></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to="/projects" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

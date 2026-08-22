@@ -5,7 +5,7 @@ const tabs = [['◉', 'Summary', 'summary'], ['▤', 'Backlog', 'backlog'], ['�
 export default function ProjectHeader({ project, role }) {
   const base = `/projects/${project.id}`;
   return <header className="project-header">
-    <div className="project-title"><span className="project-avatar">{project.key.slice(0, 1)}</span><div><small>Spaces</small><h1>{project.name}</h1></div><span className="role-chip">{role}</span><NavLink className="icon-button" to={`${base}/settings`} title="Project settings">•••</NavLink></div>
+    <div className="project-title"><span className="project-avatar">{project.key.slice(0, 1)}</span><div><small>Spaces</small><h1>{project.name}</h1></div><span className="role-chip">{role === 'viewer' ? 'Viewer' : 'Admin'}</span><NavLink className="icon-button" to={`${base}/settings`} title="Space settings">•••</NavLink></div>
     <nav className="project-tabs" aria-label="Project views">
       {tabs.map(([icon, label, path]) => <NavLink key={path} to={`${base}/${path}`}><span>{icon}</span>{label}</NavLink>)}
     </nav>

@@ -32,8 +32,27 @@ async function findById(id, client = pool) {
   return result.rows[0] ?? null;
 }
 
+async function search(search = '', client = pool) {
+  const result = await client.query(
+    `SELECT ${publicColumns}
+       FROM users
+      WHERE $1 = '' OR name ILIKE '%' || $1 || '%' OR email ILIKE '%' || $1 || '%'
+      ORDER BY name, email
+      LIMIT 50`,
+    [search],
+  );
+  return result.rows;
+}
+
+async function findExistingIds(ids, client = pool) {
+  if (!ids.length) return [];
+  return (await client.query('SELECT id FROM users WHERE id = ANY($1::int[]) ORDER BY id', [ids])).rows.map((row) => row.id);
+}
+
 module.exports = {
   create,
   findByEmail,
   findById,
+  findExistingIds,
+  search,
 };

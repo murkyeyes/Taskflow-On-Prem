@@ -11,7 +11,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  if (user) return <Navigate to="/projects" replace />;
+  if (user) return <Navigate to="/" replace />;
   const setField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
 
   async function submit(event) {
@@ -20,7 +20,7 @@ export default function LoginPage() {
     setError('');
     try {
       await login({ email: form.email, password: form.password });
-      navigate('/projects');
+      navigate('/');
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -37,7 +37,7 @@ export default function LoginPage() {
         <label>Email<input required type="email" value={form.email} onChange={(event) => setField('email', event.target.value)} /></label>
         <label>Password<input required minLength="8" type="password" value={form.password} onChange={(event) => setField('password', event.target.value)} /></label>
         <button className="button primary auth-submit" disabled={busy} type="submit">{busy ? 'Working…' : 'Continue'}</button>
-        <p className="muted">Need an account? Ask a project administrator to create one for you.</p>
+        <p className="muted">Need an account? Ask a Space administrator to create one for you.</p>
       </form>
       <div className="auth-art auth-art-left"><span>▦</span><i>✓</i><b>⌁</b></div><div className="auth-art auth-art-right"><span>⌕</span><i>▤</i><b>◆</b></div>
     </main>

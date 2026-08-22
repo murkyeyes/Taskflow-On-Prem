@@ -21,6 +21,8 @@ test('issues, history, comments, and polling satisfy the Phase 5 contract', { sk
     );
     users[name] = result.rows[0].id;
   }
+  const bootstrapId = (await pool.query("INSERT INTO projects (key,name,created_by) VALUES ('BOOT','Bootstrap Space',$1) RETURNING id", [users.admin])).rows[0].id;
+  await pool.query("INSERT INTO project_members (project_id,user_id,project_role) VALUES ($1,$2,'admin')", [bootstrapId, users.admin]);
 
   const cookieFor = (name) => `token=${jwt.sign(
     { sub: String(users[name]) },
@@ -53,11 +55,7 @@ test('issues, history, comments, and polling satisfy the Phase 5 contract', { sk
 
   const projectId = await createProject('TSK');
   const otherProjectId = await createProject('OTH');
-  for (const [name, role] of [['member', 'member'], ['viewer', 'viewer']]) {
-    assert.equal((await request('admin', `/projects/${projectId}/members`, {
-      method: 'POST', body: { userId: users[name], projectRole: role },
-    })).status, 201);
-  }
+  await pool.query("INSERT INTO project_members (project_id,user_id,project_role) VALUES ($1,$2,'member'),($1,$3,'viewer')", [projectId, users.member, users.viewer]);
 
   const types = (await (await request('member', `/projects/${projectId}/issue-types`)).json()).issueTypes;
   const taskType = types.find((type) => type.name === 'Task');

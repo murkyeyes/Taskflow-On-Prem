@@ -142,8 +142,8 @@ General conventions:
 
 | Method | Path | Minimum Role | Description |
 |---|---|---|---|
-| GET | `/projects` | member (of any project the user belongs to) | List projects the user participates in |
-| POST | `/projects` | Authenticated (any logged-in user) | Create a new project; creator automatically becomes `admin`. The service automatically seeds `project_issue_sequences` (`last_number=0`) and the default `issue_types`/`workflow_statuses` |
+| GET | `/projects` | Authenticated | Admin: list every Space; non-admin: list only assigned Spaces |
+| POST | `/projects` | Application Admin | Create a Space; creator becomes `admin`, selected `viewerIds` become viewers, and defaults are seeded atomically |
 | GET | `/projects/:projectId` | viewer | Project details |
 | PATCH | `/projects/:projectId` | admin | Update `name`/`description` |
 | DELETE | `/projects/:projectId` | admin | Delete project (cascade all related data) |
@@ -571,3 +571,21 @@ This approved expansion keeps the same 14-table schema and technology stack. Pub
 `GET /api/projects/:projectId/assignees?search=` returns project members whose account name or email matches case-insensitively. It is used by the board issue composer and assignee filter; an issue may only be assigned to a member of its project. `GET /api/projects/:projectId/issues?search=` matches issue key/title case-insensitively.
 
 The board provides search, assignee/status/priority filters, grouping, inline creation in a chosen workflow column, and an admin-only workflow-column creator. `POST /api/projects/:projectId/sprints/:sprintId/complete` is member/admin only and runs in one transaction: lock the project's sprints, verify that the target is active, mark it completed, then remove the sprint from each non-final issue while touching `updated_at`. It returns the completed sprint and the count moved back to the backlog. Creating an issue can accept optional `statusId` and `dueDate`; the initial history row records that supplied/default status.
+
+## 7. Space Creation and Viewer Isolation Expansion (2026-08-22)
+
+The product term is **Space**. To preserve database and API compatibility, a Space is stored in `projects`, its access list is stored in `project_members`, and existing `/api/projects` paths remain canonical. The React UI uses “Spaces”, “Your spaces”, “Create space”, and “Space key”.
+
+Only an authenticated account that has `project_role = 'admin'` in at least one Space may call `POST /api/projects`. The request may include a unique `viewerIds` array of existing user IDs. Space creation, creator-admin membership, viewer memberships, issue-key sequence, default issue types, and default workflow statuses are committed in one transaction. Any invalid account ID rolls back the entire operation.
+
+New assignments are always `viewer`. `POST` and `PATCH /api/projects/:projectId/members...` reject attempts to grant `member` or `admin`; legacy rows remain readable for compatibility. `GET /api/auth/users?search=` is admin-only and returns public account fields for the Space creator/settings account picker.
+
+Space isolation is enforced through the existing RBAC middleware. A non-admin viewer lists only assigned Spaces, and direct requests to any unassigned Space, issue, comment, workspace document, form, sprint, or development resource fail with `403`. Viewers cannot mutate Space data. Section 8 expands application Admin visibility without changing the schema.
+
+## 8. Unified Space Home, Sidebar, and Admin Scope Expansion (2026-08-22)
+
+`/` is the authenticated home page and Space selector. `/projects` remains only as a compatibility redirect to `/`; it must not render the legacy list/create page. Login success redirects to `/`. The home and every Space workspace share one Jira-style sidebar fed by `GET /api/projects`, so the list cannot differ between screens. The active Space expands its Backlog, Board, Timeline, Development, Docs, and Forms navigation.
+
+The sidebar Spaces header contains an Admin-only Create Space action linking to `/spaces/new`. The creation screen retains the canonical `POST /api/projects` transaction and account-name viewer selection. No templates, additional tables, or new service are introduced.
+
+An account with at least one `project_role = 'admin'` membership is the application Admin. `GET /api/projects` returns every Space to that account and the RBAC resolver grants effective `admin` access on every Space/resource. Non-admin accounts receive only their assigned Spaces and retain viewer-only access. This effective Admin scope is derived from existing `project_members`; no schema migration is required.

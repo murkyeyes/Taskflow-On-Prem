@@ -64,9 +64,14 @@ async function getCurrentUser(userId) {
   return toPublicUser(user);
 }
 
+async function listUsers(search) {
+  return (await userRepository.search(search)).map(toPublicUser);
+}
+
 module.exports = {
   getCurrentUser,
   login,
+  listUsers,
   register,
   verifyToken,
 };

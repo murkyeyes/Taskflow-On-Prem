@@ -207,11 +207,19 @@ JWT:
 
 ### 7.2 Projects
 
+Product/UI terminology is **Space**. The existing `projects` table and `/projects`
+API paths remain the compatibility/storage contract; frontend labels must not expose
+"Create project". Only an authenticated user with at least one `admin` membership
+may create a Space.
+
 - `GET /projects`
 - `POST /projects`
 - `GET /projects/:projectId`
 - `PATCH /projects/:projectId`
 - `DELETE /projects/:projectId`
+
+`POST /projects` accepts optional `viewerIds` and must add those existing accounts
+as `viewer` memberships in the same transaction as Space creation/default setup.
 
 Khi `POST /projects`:
 - creator tự động thành `admin`;
@@ -227,6 +235,11 @@ Khi `POST /projects`:
 - `PATCH /projects/:projectId/members/:userId`
 - `DELETE /projects/:projectId/members/:userId`
 - `GET /projects/:projectId/assignees?search=<account name or email>`
+
+New Space assignments are viewer-only. Admin selects accounts; backend must reject
+attempts to assign `member` or another `admin` through the assignment endpoints.
+Legacy `member` rows may remain for backward compatibility, but they are not offered
+by the Space-management UI.
 
 ### 7.4 Issue Types
 
@@ -338,6 +351,12 @@ Frontend `RoleGuard` chỉ dùng để ẩn/hiện UI, không thay thế backend
 
 Khi resolve quyền từ `issueKey`, backend phải xác định project sở hữu issue trước khi check role.
 
+Space visibility uses two scopes. An account with at least one `admin` membership is
+the application Admin and may list and administer every Space. All other accounts may
+list and read only Spaces in which they have a `project_members` row; direct requests
+to unassigned Space/resources must return `403`. Assigned non-admin accounts use
+`viewer` and therefore have read-only access.
+
 ---
 
 ## 9. Frontend architecture
@@ -345,7 +364,8 @@ Khi resolve quyền từ `issueKey`, backend phải xác định project sở h�
 Frontend phải có tối thiểu:
 
 - `LoginPage`
-- `ProjectListPage`
+- `HomePage` at `/` for selecting a visible Space
+- `CreateSpacePage` at `/spaces/new`, available only to Admins from the sidebar
 - `ProjectBoardPage`
 - `IssueDetailPage`
 - `ProjectSettingsPage`
@@ -355,6 +375,11 @@ Frontend phải có tối thiểu:
 - `ProjectDevelopmentPage`
 - `ProjectDocsPage`
 - `ProjectFormsPage`
+
+`/projects` is not a rendered page. It is compatibility-only and redirects to `/`.
+After login the frontend routes to `/`. The Jira-style sidebar must use the same
+`GET /projects` response as the home page, show every Space visible to the caller,
+highlight/expand the current Space, and expose Create Space only to Admins.
 
 Board render columns từ `workflow_statuses` của project, không hardcode workflow toàn hệ thống.
 

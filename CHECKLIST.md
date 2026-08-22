@@ -504,6 +504,67 @@ Chỉ thực hiện nếu khách cần truy cập ngoài LAN.
 
 ---
 
+## Phase 14 — Approved Space creation and viewer isolation
+
+> User-approved specification expansion dated 2026-08-22. “Space” is the product term; existing project storage/API identifiers remain for compatibility.
+
+### 14.1 Authoritative documents
+
+- [x] Update `RULES.md` and both System Design documents with Space terminology, admin-only creation, atomic viewer assignment, and isolation rules
+- [x] Confirm no schema, stack, container, or architecture change is required
+
+### 14.2 Backend authorization and assignment
+
+- [x] Restrict Space creation and account search to authenticated admins
+- [x] Add atomic `viewerIds` assignment during Space creation and roll back invalid assignments
+- [x] Restrict new Space assignments to viewer role
+- [x] Verify list/direct-access isolation and viewer mutation denial
+
+### 14.3 Space UI
+
+- [x] Replace project-facing list/create terminology with Space terminology
+- [x] Hide Space creation from non-admin accounts
+- [x] Add account-name selection for initial Space viewers and Settings viewer management
+- [x] Update navigation labels and empty states to describe assigned Spaces
+
+### 14.4 Verification and packaging
+
+- [x] Add/update integration tests for admin-only creation, viewer-only assignment, rollback, isolation, and mutation denial
+- [x] Run full backend integration suite, frontend build, Docker/Caddy smoke tests, and refresh `frontend-dist/`
+
+---
+
+## Phase 15 — Unified Space home and sidebar
+
+> User-approved Jira-style navigation expansion dated 2026-08-22.
+
+### 15.1 Authoritative documents
+
+- [x] Update `RULES.md` and both System Design documents for the home route, shared Space list, sidebar creation, and Admin-wide scope
+- [x] Confirm the existing `projects`/`project_members` schema and `/api/projects` compatibility routes remain unchanged
+
+### 15.2 Backend visibility and authorization
+
+- [x] Return every Space to application Admins and only assigned Spaces to non-admin accounts
+- [x] Grant application Admins effective admin authorization on every Space/resource
+- [x] Preserve `403` isolation and read-only access for unassigned/assigned non-admin accounts
+
+### 15.3 Frontend navigation
+
+- [x] Replace the rendered `/projects` page with `/` home and make `/projects` redirect to `/`
+- [x] Route successful login to the home page
+- [x] Render the same permitted Space list on home and in every workspace sidebar
+- [x] Add Admin-only Create Space navigation and creation screen at `/spaces/new`
+- [x] Expand only the active Space navigation while keeping other Spaces selectable
+
+### 15.4 Verification and packaging
+
+- [x] Add/update integration coverage for Admin-wide visibility/access and non-admin isolation
+- [x] Run backend unit/integration suites and frontend production build
+- [x] Deploy Docker/Caddy, smoke-test home/sidebar/create authorization, and refresh `frontend-dist/`
+
+---
+
 ## Completion rule
 
 

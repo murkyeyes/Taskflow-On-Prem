@@ -2,6 +2,7 @@ const projectService = require('../services/project.service');
 const HttpError = require('../utils/httpError');
 const {
   optionalString,
+  requireInteger,
   requireObject,
   requireString,
 } = require('../utils/validation');
@@ -20,10 +21,14 @@ async function list(request, response) {
 
 async function create(request, response) {
   const body = requireObject(request.body);
+  if (body.viewerIds !== undefined && !Array.isArray(body.viewerIds)) throw new HttpError(400, 'VALIDATION_ERROR', 'viewerIds must be an array');
+  const viewerIds = [...new Set((body.viewerIds ?? []).map((id) => requireInteger(id, 'viewerIds item', { min: 1 })))];
+  if (viewerIds.length > 100) throw new HttpError(400, 'VALIDATION_ERROR', 'viewerIds must contain at most 100 accounts');
   const project = await projectService.createProject({
     key: normalizeProjectKey(body.key),
     name: requireString(body.name, 'name', { min: 1, max: 200 }),
     description: optionalString(body.description, 'description', { min: 1, max: 10_000 }),
+    viewerIds,
   }, request.user.userId);
   response.status(201).json({ project });
 }

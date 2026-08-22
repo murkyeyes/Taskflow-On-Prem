@@ -20,6 +20,8 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
     );
     users[name] = result.rows[0].id;
   }
+  const bootstrapId = (await pool.query("INSERT INTO projects (key,name,created_by) VALUES ('BOOT','Bootstrap Space',$1) RETURNING id", [users.admin])).rows[0].id;
+  await pool.query("INSERT INTO project_members (project_id,user_id,project_role) VALUES ($1,$2,'admin')", [bootstrapId, users.admin]);
 
   const tokenFor = (name) => jwt.sign(
     { sub: String(users[name]) },
@@ -47,7 +49,7 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
 
   const createResponse = await request('admin', '/projects', {
     method: 'POST',
-    body: { key: 'demo', name: 'Demo Project', description: 'Project domain test' },
+    body: { key: 'demo', name: 'Demo Space', description: 'Space domain test', viewerIds: [users.viewer, users.removable] },
   });
   assert.equal(createResponse.status, 201);
   const projectId = (await createResponse.json()).project.id;
@@ -59,7 +61,8 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
        (SELECT count(*)::int FROM issue_types WHERE project_id = $1) AS type_count,
        (SELECT count(*)::int FROM workflow_statuses WHERE project_id = $1) AS status_count,
        (SELECT count(*)::int FROM workflow_statuses WHERE project_id = $1 AND is_default) AS default_count,
-       (SELECT count(*)::int FROM workflow_statuses WHERE project_id = $1 AND is_final) AS final_count`,
+       (SELECT count(*)::int FROM workflow_statuses WHERE project_id = $1 AND is_final) AS final_count,
+       (SELECT count(*)::int FROM project_members WHERE project_id = $1 AND project_role = 'viewer') AS viewer_count`,
     [projectId, users.admin],
   );
   assert.deepEqual(invariants.rows[0], {
@@ -69,7 +72,10 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
     status_count: 3,
     default_count: 1,
     final_count: 1,
+    viewer_count: 2,
   });
+  assert.equal((await request('admin', '/projects', { method: 'POST', body: { key: 'BADVIEW', name: 'Invalid viewer Space', viewerIds: [999999] } })).status, 400);
+  assert.equal((await pool.query("SELECT count(*)::int AS count FROM projects WHERE key='BADVIEW'")).rows[0].count, 0);
 
   assert.equal((await request('admin', '/projects')).status, 200);
   assert.equal((await request('admin', `/projects/${projectId}`)).status, 200);
@@ -77,12 +83,19 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
     method: 'PATCH', body: { name: 'Renamed Project' },
   })).status, 200);
 
-  for (const [name, projectRole] of [['member', 'member'], ['viewer', 'viewer'], ['removable', 'viewer']]) {
-    const response = await request('admin', `/projects/${projectId}/members`, {
-      method: 'POST', body: { userId: users[name], projectRole },
-    });
-    assert.equal(response.status, 201);
-  }
+  await pool.query("INSERT INTO project_members (project_id,user_id,project_role) VALUES ($1,$2,'member')", [projectId, users.member]);
+  const privateProjectId = (await pool.query(
+    "INSERT INTO projects (key,name,created_by) VALUES ('PRIVATE','Member-only Space',$1) RETURNING id",
+    [users.member],
+  )).rows[0].id;
+  await pool.query(
+    "INSERT INTO project_members (project_id,user_id,project_role) VALUES ($1,$2,'member')",
+    [privateProjectId, users.member],
+  );
+  assert.equal((await request('outsider', '/projects', { method: 'POST', body: { key: 'NOPE', name: 'Forbidden' } })).status, 403);
+  assert.equal((await request('outsider', '/auth/users')).status, 403);
+  assert.equal((await request('admin', '/auth/users?search=view')).status, 200);
+  assert.equal((await request('admin', `/projects/${projectId}/members`, { method: 'POST', body: { userId: users.outsider, projectRole: 'member' } })).status, 400);
   assert.equal((await request('member', `/projects/${projectId}/members`)).status, 200);
   assert.equal((await request('viewer', `/projects/${projectId}/members`)).status, 403);
   assert.equal((await request('member', `/projects/${projectId}/members`, {
@@ -90,7 +103,7 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
   })).status, 403);
   assert.equal((await request('admin', `/projects/${projectId}/members/${users.removable}`, {
     method: 'PATCH', body: { projectRole: 'member' },
-  })).status, 200);
+  })).status, 400);
   assert.equal((await request('admin', `/projects/${projectId}/members/${users.removable}`, {
     method: 'DELETE',
   })).status, 204);
@@ -99,6 +112,22 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
     method: 'PATCH', body: { name: 'Forbidden rename' },
   })).status, 403);
   assert.equal((await request('viewer', `/projects/${projectId}`)).status, 200);
+  assert.equal((await request('outsider', `/projects/${projectId}`)).status, 403);
+  assert.equal((await request('admin', `/projects/${privateProjectId}`)).status, 200);
+  assert.equal((await request('admin', `/projects/${privateProjectId}`, {
+    method: 'PATCH', body: { name: 'Admin-visible Space' },
+  })).status, 200);
+  assert.equal((await request('viewer', `/projects/${privateProjectId}`)).status, 403);
+  const viewerSpaces = (await (await request('viewer', '/projects')).json()).projects;
+  const memberSpaces = (await (await request('member', '/projects')).json()).projects;
+  const adminSpaces = (await (await request('admin', '/projects')).json()).projects;
+  const outsiderSpaces = (await (await request('outsider', '/projects')).json()).projects;
+  assert.deepEqual(viewerSpaces.map((space) => space.id), [projectId]);
+  assert.deepEqual(new Set(memberSpaces.map((space) => space.id)), new Set([projectId, privateProjectId]));
+  assert.ok(adminSpaces.some((space) => space.id === bootstrapId && space.project_role === 'admin'));
+  assert.ok(adminSpaces.some((space) => space.id === projectId && space.project_role === 'admin'));
+  assert.ok(adminSpaces.some((space) => space.id === privateProjectId && space.project_role === 'admin'));
+  assert.equal(outsiderSpaces.length, 0);
 
   const typeList = await request('member', `/projects/${projectId}/issue-types`);
   assert.equal(typeList.status, 200);

@@ -8,3 +8,4 @@ export const logout = () => apiRequest('/auth/logout', { method: 'POST' });
 export const register = (data) => apiRequest('/auth/register', {
   method: 'POST', body: jsonBody(data),
 });
+export const listUsers = (search = '') => apiRequest(`/auth/users${search ? `?${new URLSearchParams({ search })}` : ''}`);

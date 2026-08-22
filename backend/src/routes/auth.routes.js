@@ -10,5 +10,6 @@ router.post('/register', requireAuth, requireAccountAdmin, authController.regist
 router.post('/login', authController.login);
 router.post('/logout', requireAuth, authController.logout);
 router.get('/me', requireAuth, authController.me);
+router.get('/users', requireAuth, requireAccountAdmin, authController.listUsers);
 
 module.exports = router;
