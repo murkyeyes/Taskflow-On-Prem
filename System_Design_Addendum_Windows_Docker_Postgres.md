@@ -230,3 +230,7 @@ The Space terminology and viewer-assignment expansion reuses the `projects` and 
 ## 10. Unified Space home/sidebar deployment note (2026-08-22)
 
 The home/sidebar expansion also requires no migration or container change. Deploy the backend RBAC/list-query update and the frontend route/sidebar update together. Verify that `/projects` redirects to `/`, login lands on `/`, an Admin sees every Space and can open `/spaces/new`, and a non-admin sees only assigned Spaces with no creation control. The same Space count/list must appear on the home screen and workspace sidebar.
+
+## 11. Issue completion migration note (2026-08-22)
+
+Apply `backend/src/db/migrations/003-issue-completion.sql` once to an existing PostgreSQL volume before starting the updated application. Fresh databases receive the same `completed_at` column and indexes from `schema.sql`. Backfill sets `completed_at` from the latest transition into the issue's current final status. Deploy backend and frontend together, then verify created/completed day filters, assignee-name display, member self-assignment, completed-member `403`, and Admin reopen/edit.

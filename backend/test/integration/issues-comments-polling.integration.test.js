@@ -64,6 +64,7 @@ test('issues, history, comments, and polling satisfy the Phase 5 contract', { sk
   const statuses = (await (await request('member', `/projects/${projectId}/workflow-statuses`)).json()).workflowStatuses;
   const defaultStatus = statuses.find((status) => status.is_default);
   const inProgress = statuses.find((status) => status.name === 'In Progress');
+  const finalStatus = statuses.find((status) => status.is_final);
   const otherStatuses = (await (await request('admin', `/projects/${otherProjectId}/workflow-statuses`)).json()).workflowStatuses;
 
   const firstCreate = await request('member', `/projects/${projectId}/issues`, {
@@ -92,7 +93,7 @@ test('issues, history, comments, and polling satisfy the Phase 5 contract', { sk
     method: 'POST',
     body: { title: 'Rollback issue', issueTypeId: taskType.id, assigneeId: 999999 },
   });
-  assert.equal(rollbackResponse.status, 400);
+  assert.equal(rollbackResponse.status, 403);
   const afterRollback = await pool.query('SELECT last_number FROM project_issue_sequences WHERE project_id = $1', [projectId]);
   assert.equal(afterRollback.rows[0].last_number, beforeRollback.rows[0].last_number);
 
@@ -115,7 +116,13 @@ test('issues, history, comments, and polling satisfy the Phase 5 contract', { sk
   assert.equal(page.page, 1);
   assert.equal(page.pageSize, 5);
   const assigneePage = await request('viewer', `/projects/${projectId}/issues?assignee_id=${users.member}`);
-  assert.equal((await assigneePage.json()).total, 1);
+  const assigneeResult = await assigneePage.json();
+  assert.equal(assigneeResult.total, 1);
+  assert.equal(assigneeResult.issues[0].assignee_name, 'member');
+  const createdOn = firstIssue.created_at.slice(0, 10);
+  const createdPage = await request('viewer', `/projects/${projectId}/issues?created_on=${createdOn}`);
+  assert.ok((await createdPage.json()).issues.some((issue) => issue.id === firstIssue.id));
+  assert.equal((await request('viewer', `/projects/${projectId}/issues?created_on=not-a-date`)).status, 400);
 
   assert.equal((await request('viewer', `/issues/${firstIssue.issue_key}`)).status, 200);
   const updateResponse = await request('member', `/issues/${firstIssue.issue_key}`, {
@@ -123,6 +130,9 @@ test('issues, history, comments, and polling satisfy the Phase 5 contract', { sk
   });
   assert.equal(updateResponse.status, 200);
   assert.equal((await updateResponse.json()).issue.priority, 'highest');
+  assert.equal((await request('member', `/issues/${firstIssue.issue_key}`, {
+    method: 'PATCH', body: { assigneeId: users.viewer },
+  })).status, 403);
 
   assert.equal((await request('member', `/issues/${firstIssue.issue_key}/status`, {
     method: 'PATCH', body: { statusId: otherStatuses[0].id },
@@ -135,6 +145,38 @@ test('issues, history, comments, and polling satisfy the Phase 5 contract', { sk
   assert.equal(history.rowCount, 2);
   assert.equal(history.rows[1].from_status_id, defaultStatus.id);
   assert.equal(history.rows[1].to_status_id, inProgress.id);
+
+  const completedResponse = await request('member', `/issues/${firstIssue.issue_key}/status`, {
+    method: 'PATCH', body: { statusId: finalStatus.id },
+  });
+  assert.equal(completedResponse.status, 200);
+  const completedIssue = (await completedResponse.json()).issue;
+  assert.ok(completedIssue.completed_at);
+  const completedOn = completedIssue.completed_at.slice(0, 10);
+  const completedPage = await request('viewer', `/projects/${projectId}/issues?completed_on=${completedOn}`);
+  assert.ok((await completedPage.json()).issues.some((issue) => issue.id === firstIssue.id));
+  assert.equal((await request('member', `/issues/${firstIssue.issue_key}`, {
+    method: 'PATCH', body: { title: 'Member cannot edit completed issue' },
+  })).status, 403);
+  assert.equal((await request('member', `/issues/${firstIssue.issue_key}/planning`, {
+    method: 'PATCH', body: { dueDate: '2026-09-01' },
+  })).status, 403);
+  assert.equal((await request('member', `/issues/${firstIssue.issue_key}/status`, {
+    method: 'PATCH', body: { statusId: inProgress.id },
+  })).status, 403);
+  const adminEdit = await request('admin', `/issues/${firstIssue.issue_key}`, {
+    method: 'PATCH', body: { title: 'Admin edited completed issue', assigneeId: users.viewer },
+  });
+  assert.equal(adminEdit.status, 200);
+  assert.equal((await adminEdit.json()).issue.assignee_id, users.viewer);
+  const reopenedResponse = await request('admin', `/issues/${firstIssue.issue_key}/status`, {
+    method: 'PATCH', body: { statusId: inProgress.id },
+  });
+  assert.equal(reopenedResponse.status, 200);
+  assert.equal((await reopenedResponse.json()).issue.completed_at, null);
+  assert.equal((await request('member', `/issues/${firstIssue.issue_key}`, {
+    method: 'PATCH', body: { assigneeId: users.member },
+  })).status, 200);
 
   assert.equal((await request('viewer', `/issues/${firstIssue.issue_key}/comments`, {
     method: 'POST', body: { content: 'Viewer cannot comment' },

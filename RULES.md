@@ -102,7 +102,10 @@ Schema chính thức gồm **14 bảng** sau khi người dùng phê duyệt m�
 13. `form_submissions`
 14. `development_links`
 
-`issues` được mở rộng với `sprint_id`, `due_date`, `story_points` và `backlog_rank` để phục vụ Backlog/Timeline/Summary. Không tự thêm, bớt hoặc đổi semantic của bảng nếu chưa được người dùng phê duyệt.
+`issues` được mở rộng với `sprint_id`, `due_date`, `story_points`, `backlog_rank` và
+`completed_at`. `completed_at` là `NULL` khi issue chưa hoàn thành, được đặt khi issue
+vào status `is_final`, và được xoá khi Admin mở lại issue. Không tự thêm, bớt hoặc
+đổi semantic của bảng nếu chưa được người dùng phê duyệt.
 
 ### 4.1 PostgreSQL conventions
 
@@ -276,6 +279,17 @@ List issues phải hỗ trợ các query param đã định nghĩa trong System 
 - `page`
 - `pageSize`
 - `search` (match case-insensitive against issue key or title)
+- `created_on` (ISO date `YYYY-MM-DD`, lọc theo ngày tạo)
+- `completed_on` (ISO date `YYYY-MM-DD`, lọc theo ngày hoàn thành)
+
+Mọi issue response dùng cho board/detail phải trả `created_at`, `completed_at`,
+`assignee_id` và `assignee_name`. Member chỉ được đặt assignee thành chính tài khoản
+của mình (hoặc bỏ gán); Admin có thể gán bất kỳ project member nào.
+
+Khi issue đang ở status `is_final`, mọi mutation field/planning/status của Member
+phải bị backend từ chối `403 COMPLETED_ISSUE_LOCKED`. Chỉ Admin được sửa hoặc mở lại
+issue hoàn thành. Khi chuyển vào final status, update issue và `completed_at` phải nằm
+trong cùng transaction với status history.
 
 ### 7.7 Comments
 
@@ -395,7 +409,7 @@ Polling nên được gom vào hook/service tương ứng như `usePolling`.
 - Summary phải lấy aggregate thật từ API; Backlog/Timeline/Development/Docs/Forms phải đọc/ghi dữ liệu thật theo RBAC.
 - Không thêm chart framework lớn; ưu tiên CSS/SVG/HTML thuần.
 - Login chỉ mô phỏng visual language của Jira và giữ email/password; public register UI/API bị loại bỏ. Chỉ project admin mới có thể tạo tài khoản qua settings; không thêm OAuth/social login nếu chưa được phê duyệt riêng.
-- Board phải có server-backed search, assignee-by-account-name lookup/filter, filter/group controls, inline create theo workflow column, admin-only add-column control, và complete-active-sprint action. Create issue phải hỗ trợ optional status, due date và project-member assignee; backend phải xác minh assignee thuộc project.
+- Board phải có server-backed search, assignee-by-account-name lookup/filter, filter/group controls, ngày tạo/ngày hoàn thành, inline create theo workflow column, admin-only add-column control, và complete-active-sprint action. Trường Assignee phải hỗ trợ gõ một phần hoặc toàn bộ tên account để lọc danh sách gợi ý và các card; chọn một gợi ý sẽ áp dụng bộ lọc chính xác, còn Everyone/Clear filters sẽ xoá bộ lọc. Card phải hiển thị assignee ngay dưới title cùng created/completed dates. Create issue phải hỗ trợ optional status, due date và project-member assignee; backend phải xác minh membership, self-assignment của Member và completed-lock.
 
 ### 9.2 Build output và production static folder
 

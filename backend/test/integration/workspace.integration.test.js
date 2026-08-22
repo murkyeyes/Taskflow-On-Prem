@@ -34,7 +34,7 @@ test('Jira workspace APIs persist data and enforce ownership and RBAC', { skip: 
   assert.equal(assigneeLookup.status, 200); assert.equal((await assigneeLookup.json()).assignees[0].user_id, users.viewer);
   const allAssignees = await request('member', `/projects/${project.id}/assignees`);
   assert.equal(allAssignees.status, 200); assert.equal((await allAssignees.json()).assignees.length, 3);
-  assert.equal((await request('member', `/projects/${project.id}/issues`, 'POST', { title: 'Wrong assignee', issueTypeId: type.id, assigneeId: 999999 })).status, 400);
+  assert.equal((await request('member', `/projects/${project.id}/issues`, 'POST', { title: 'Wrong assignee', issueTypeId: type.id, assigneeId: 999999 })).status, 403);
 
   assert.equal((await request('viewer', `/projects/${project.id}/summary`)).status, 200);
   assert.equal((await request('viewer', `/projects/${project.id}/sprints`, 'POST', { name: 'Forbidden' })).status, 403);

@@ -51,7 +51,7 @@ async function updatePlanning(req, res) {
   if (body.storyPoints !== undefined) data.storyPoints = optionalInteger(body.storyPoints, 'storyPoints', { min: 0, max: 100 });
   if (body.backlogRank !== undefined) data.backlogRank = requireInteger(body.backlogRank, 'backlogRank', { min: 0 });
   if (Object.keys(data).length === 0) throw new HttpError(400, 'VALIDATION_ERROR', 'At least one planning field must be provided');
-  res.json({ issue: await workspaceService.updatePlanning(req.params.issueKey, req.projectId, data) });
+  res.json({ issue: await workspaceService.updatePlanning(req.params.issueKey, req.projectId, data, req.projectRole) });
 }
 
 async function listDevelopment(req, res) { res.json({ developmentLinks: await workspaceService.listDevelopmentLinks(req.projectId) }); }

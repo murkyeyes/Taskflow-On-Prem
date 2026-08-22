@@ -7,14 +7,17 @@ async function getServerTime(client = pool) {
 
 async function findChangedIssues(projectId, since, until, client = pool) {
   const result = await client.query(
-    `SELECT id, project_id, issue_key, title, description, issue_type_id,
-            status_id, reporter_id, assignee_id, priority, metadata,
-            created_at, updated_at
-       FROM issues
-      WHERE project_id = $1
-        AND updated_at > $2
-        AND updated_at <= $3
-      ORDER BY updated_at, id`,
+    `SELECT issue.id, issue.project_id, issue.issue_key, issue.title, issue.description,
+            issue.issue_type_id, issue.status_id, issue.reporter_id, issue.assignee_id,
+            issue.priority, issue.metadata, issue.sprint_id, issue.due_date,
+            issue.story_points, issue.backlog_rank, issue.created_at, issue.completed_at,
+            issue.updated_at, assignee.name AS assignee_name
+       FROM issues AS issue
+       LEFT JOIN users AS assignee ON assignee.id = issue.assignee_id
+      WHERE issue.project_id = $1
+        AND issue.updated_at > $2
+        AND issue.updated_at <= $3
+      ORDER BY issue.updated_at, issue.id`,
     [projectId, since, until],
   );
   return result.rows;

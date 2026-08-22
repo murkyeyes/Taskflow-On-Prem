@@ -80,6 +80,7 @@ CREATE TABLE issues (
     story_points  INTEGER      CHECK (story_points BETWEEN 0 AND 100),
     backlog_rank  BIGINT       NOT NULL DEFAULT 0,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    completed_at  TIMESTAMPTZ,
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
@@ -160,6 +161,8 @@ CREATE INDEX idx_sprints_project_status ON sprints(project_id, status);
 CREATE UNIQUE INDEX idx_sprints_one_active ON sprints(project_id) WHERE status = 'active';
 CREATE INDEX idx_issues_project_backlog ON issues(project_id, sprint_id, backlog_rank);
 CREATE INDEX idx_issues_project_due_date ON issues(project_id, due_date);
+CREATE INDEX idx_issues_project_created_at ON issues(project_id, created_at);
+CREATE INDEX idx_issues_project_completed_at ON issues(project_id, completed_at);
 CREATE INDEX idx_project_docs_project_updated ON project_docs(project_id, updated_at DESC);
 CREATE INDEX idx_project_forms_project ON project_forms(project_id);
 CREATE INDEX idx_form_submissions_form_created ON form_submissions(form_id, created_at DESC);

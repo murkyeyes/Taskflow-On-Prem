@@ -18,7 +18,20 @@ async function listIssues(projectId, filters, pagination) {
   };
 }
 
-async function createIssue(projectId, data, reporterId) {
+function enforceAssignment(projectRole, actorId, assigneeId, currentAssigneeId = null) {
+  if (projectRole === 'admin' || assigneeId === null || assigneeId === actorId || assigneeId === currentAssigneeId) return;
+  throw new HttpError(403, 'SELF_ASSIGNMENT_ONLY', 'Members may assign an issue only to themselves');
+}
+
+async function requireMutableIssue(current, projectRole, client) {
+  const currentStatus = await workflowStatusRepository.findById(current.project_id, current.status_id, client);
+  if (currentStatus?.is_final && projectRole !== 'admin') {
+    throw new HttpError(403, 'COMPLETED_ISSUE_LOCKED', 'Only an Admin can edit a completed issue');
+  }
+  return currentStatus;
+}
+
+async function createIssue(projectId, data, reporterId, projectRole) {
   try {
     return await withTransaction(async (client) => {
       const project = await projectRepository.lockById(projectId, client);
@@ -28,6 +41,7 @@ async function createIssue(projectId, data, reporterId) {
       if (!await issueTypeRepository.findById(projectId, data.issueTypeId, client)) {
         throw new HttpError(400, 'ISSUE_TYPE_PROJECT_MISMATCH', 'Issue type does not belong to this project');
       }
+      enforceAssignment(projectRole, reporterId, data.assigneeId);
       if (data.assigneeId !== null && !await memberRepository.findRoleByProjectId(projectId, data.assigneeId, client)) {
         throw new HttpError(400, 'ASSIGNEE_PROJECT_MISMATCH', 'Assignee must be a member of this project');
       }
@@ -51,6 +65,7 @@ async function createIssue(projectId, data, reporterId) {
         assigneeId: data.assigneeId,
         priority: data.priority,
         dueDate: data.dueDate,
+        isFinal: selectedStatus.is_final,
         metadata: {},
       }, client);
       await issueStatusHistoryRepository.create({
@@ -77,18 +92,22 @@ async function getIssue(issueKey) {
   return issue;
 }
 
-async function updateIssue(issueKey, changes) {
+async function updateIssue(issueKey, changes, actorId, projectRole) {
   try {
     return await withTransaction(async (client) => {
       const current = await issueRepository.lockByKey(issueKey, client);
       if (!current) {
         throw new HttpError(404, 'ISSUE_NOT_FOUND', 'Issue not found');
       }
+      await requireMutableIssue(current, projectRole, client);
       if (changes.issueTypeId !== undefined && !await issueTypeRepository.findById(current.project_id, changes.issueTypeId, client)) {
         throw new HttpError(400, 'ISSUE_TYPE_PROJECT_MISMATCH', 'Issue type does not belong to this project');
       }
-      if (changes.assigneeId !== undefined && changes.assigneeId !== null && !await memberRepository.findRoleByProjectId(current.project_id, changes.assigneeId, client)) {
-        throw new HttpError(400, 'ASSIGNEE_PROJECT_MISMATCH', 'Assignee must be a member of this project');
+      if (changes.assigneeId !== undefined) {
+        enforceAssignment(projectRole, actorId, changes.assigneeId, current.assignee_id);
+        if (changes.assigneeId !== null && !await memberRepository.findRoleByProjectId(current.project_id, changes.assigneeId, client)) {
+          throw new HttpError(400, 'ASSIGNEE_PROJECT_MISMATCH', 'Assignee must be a member of this project');
+        }
       }
       return issueRepository.update(issueKey, changes, client);
     });
@@ -100,16 +119,18 @@ async function updateIssue(issueKey, changes) {
   }
 }
 
-async function changeStatus(issueKey, statusId, changedBy) {
+async function changeStatus(issueKey, statusId, changedBy, projectRole) {
   return withTransaction(async (client) => {
     const current = await issueRepository.lockByKey(issueKey, client);
     if (!current) {
       throw new HttpError(404, 'ISSUE_NOT_FOUND', 'Issue not found');
     }
-    if (!await workflowStatusRepository.findById(current.project_id, statusId, client)) {
+    await requireMutableIssue(current, projectRole, client);
+    const targetStatus = await workflowStatusRepository.findById(current.project_id, statusId, client);
+    if (!targetStatus) {
       throw new HttpError(400, 'STATUS_PROJECT_MISMATCH', 'Workflow status does not belong to this project');
     }
-    const updated = await issueRepository.updateStatus(issueKey, statusId, client);
+    const updated = await issueRepository.updateStatus(issueKey, statusId, targetStatus.is_final, client);
     await issueStatusHistoryRepository.create({
       issueId: current.id,
       fromStatusId: current.status_id,

@@ -80,6 +80,7 @@ CREATE TABLE issues (
                   CHECK (priority IN ('lowest', 'low', 'medium', 'high', 'highest')),
     metadata      JSONB        NOT NULL DEFAULT '{}'::jsonb,  -- flexible custom fields, if needed
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    completed_at  TIMESTAMPTZ,
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
@@ -180,7 +181,7 @@ General conventions:
 
 | Method | Path | Minimum Role | Description |
 |---|---|---|---|
-| GET | `/projects/:projectId/issues` | viewer | Query params: `status_id`, `assignee_id`, `issue_type_id`, `page`, `pageSize` |
+| GET | `/projects/:projectId/issues` | viewer | Query params: `status_id`, `assignee_id`, `issue_type_id`, `created_on`, `completed_on`, `page`, `pageSize` |
 | POST | `/projects/:projectId/issues` | member | Body: `{ title, description?, issueTypeId, assigneeId?, priority? }`. Service generates `issue_key` atomically (Section 3.2) and assigns `status_id` to the project's status where `is_default = true` |
 | GET | `/issues/:issueKey` | viewer | Issue details |
 | PATCH | `/issues/:issueKey` | member | Update `title`/`description`/`assigneeId`/`priority`/`issueTypeId` |
@@ -570,7 +571,7 @@ This approved expansion keeps the same 14-table schema and technology stack. Pub
 
 `GET /api/projects/:projectId/assignees?search=` returns project members whose account name or email matches case-insensitively. It is used by the board issue composer and assignee filter; an issue may only be assigned to a member of its project. `GET /api/projects/:projectId/issues?search=` matches issue key/title case-insensitively.
 
-The board provides search, assignee/status/priority filters, grouping, inline creation in a chosen workflow column, and an admin-only workflow-column creator. `POST /api/projects/:projectId/sprints/:sprintId/complete` is member/admin only and runs in one transaction: lock the project's sprints, verify that the target is active, mark it completed, then remove the sprint from each non-final issue while touching `updated_at`. It returns the completed sprint and the count moved back to the backlog. Creating an issue can accept optional `statusId` and `dueDate`; the initial history row records that supplied/default status.
+The board provides search, an assignee-name typeahead/filter backed by `GET /api/projects/:projectId/assignees?search=`, assignee/status/priority filters, grouping, inline creation in a chosen workflow column, and an admin-only workflow-column creator. Typing a partial member name narrows suggestions and visible cards; selecting a suggestion applies the exact assignee filter, while `Everyone`/Clear filters removes it. `POST /api/projects/:projectId/sprints/:sprintId/complete` is member/admin only and runs in one transaction: lock the project's sprints, verify that the target is active, mark it completed, then remove the sprint from each non-final issue while touching `updated_at`. It returns the completed sprint and the count moved back to the backlog. Creating an issue can accept optional `statusId` and `dueDate`; the initial history row records that supplied/default status.
 
 ## 7. Space Creation and Viewer Isolation Expansion (2026-08-22)
 
@@ -589,3 +590,11 @@ Space isolation is enforced through the existing RBAC middleware. A non-admin vi
 The sidebar Spaces header contains an Admin-only Create Space action linking to `/spaces/new`. The creation screen retains the canonical `POST /api/projects` transaction and account-name viewer selection. No templates, additional tables, or new service are introduced.
 
 An account with at least one `project_role = 'admin'` membership is the application Admin. `GET /api/projects` returns every Space to that account and the RBAC resolver grants effective `admin` access on every Space/resource. Non-admin accounts receive only their assigned Spaces and retain viewer-only access. This effective Admin scope is derived from existing `project_members`; no schema migration is required.
+
+## 9. Issue completion dates, immutable completion, and self-assignment (2026-08-22)
+
+`issues.completed_at TIMESTAMPTZ NULL` records the current completion timestamp. A transition into a workflow status with `is_final = true` sets it in the same transaction as the status update/history insert. An Admin transition back to a non-final status clears it; re-completion sets a new timestamp. Migration `003-issue-completion.sql` adds the column and project/date indexes to existing installations.
+
+`GET /api/projects/:projectId/issues` accepts `created_on` and `completed_on` as ISO dates and applies half-open day ranges. Board/detail responses include `created_at`, `completed_at`, `assignee_id`, and `assignee_name`. Board cards display the assignee below the title and both applicable dates.
+
+For `member`, create/update requests may set `assigneeId` only to the caller, preserve an existing assignment, or clear it. Admin may assign any actual Space member. If the current workflow status is final, member requests to PATCH issue fields, planning, or status fail with `403 COMPLETED_ISSUE_LOCKED`; Admin retains mutation and reopen authority. These checks are enforced in services after row locking, not only in React.

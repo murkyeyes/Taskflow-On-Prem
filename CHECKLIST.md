@@ -565,6 +565,55 @@ Chỉ thực hiện nếu khách cần truy cập ngoài LAN.
 
 ---
 
+## Phase 16 — Issue completion tracking and assignment controls
+
+> User-approved task-tracking and authorization expansion dated 2026-08-22.
+
+### 16.1 Authoritative documents and schema
+
+- [x] Update `RULES.md` and both System Design documents for completion dates, final-status locking, and self-assignment
+- [x] Add `issues.completed_at`, date indexes, and an idempotent migration/backfill
+
+### 16.2 Backend behavior
+
+- [x] Add `created_on` and `completed_on` issue filters and return assignee names
+- [x] Set/clear `completed_at` atomically with final/non-final status transitions
+- [x] Reject all member field/planning/status mutations on completed issues
+- [x] Restrict member assignment changes to self, unchanged assignment, or unassigned
+- [x] Preserve Admin assignment, completed edit, and reopen authority
+
+### 16.3 Frontend board and detail
+
+- [x] Add Created on and Completed on day filters to the board
+- [x] Display assignee below task title and created/completed dates on cards
+- [x] Hide/disable completed issue editing for members while retaining Admin controls
+- [x] Restrict member assignee choices to their own account
+
+### 16.4 Verification and packaging
+
+- [x] Add integration coverage for date filters, timestamp transitions, self-assignment, completed lock, and Admin override
+- [x] Run backend unit/integration suites and frontend production build
+- [x] Apply migration, deploy Docker/Caddy, run live smoke tests, and refresh `frontend-dist/`
+
+---
+
+## Phase 17 — Searchable assignee board filter
+
+> User-requested usability enhancement dated 2026-08-22.
+
+### 17.1 Specification and implementation
+
+- [x] Document assignee-name typeahead behavior in `RULES.md` and the Core System Design
+- [x] Use the project-member assignee lookup API while typing and filter visible board cards by the entered name
+- [x] Apply exact assignee filtering when a suggestion is selected and support Everyone/Clear filters reset
+
+### 17.2 Verification and packaging
+
+- [x] Run the frontend production build successfully
+- [x] Refresh `frontend-dist/` and verify the live Caddy-served bundle and health endpoint
+
+---
+
 ## Completion rule
 
 

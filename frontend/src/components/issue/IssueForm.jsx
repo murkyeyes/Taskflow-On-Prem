@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 
 const emptyIssue = {
   title: '',
@@ -10,9 +10,11 @@ const emptyIssue = {
   statusId: '',
 };
 
-export default function IssueForm({ issueTypes, assignees = [], initialIssue, defaultStatusId = '', onSubmit, submitLabel = 'Save issue', compact = false, onCancel }) {
+export default function IssueForm({ issueTypes, assignees = [], initialIssue, defaultStatusId = '', onSubmit, submitLabel = 'Save issue', compact = false, onCancel, restrictAssigneeToUserId = null }) {
   const [form, setForm] = useState(emptyIssue);
   const [assigneeSearch, setAssigneeSearch] = useState('');
+  const assigneeListId = useId();
+  const selectableAssignees = useMemo(() => restrictAssigneeToUserId === null ? assignees : assignees.filter((member) => member.user_id === restrictAssigneeToUserId || member.user_id === initialIssue?.assignee_id), [assignees, initialIssue?.assignee_id, restrictAssigneeToUserId]);
 
   useEffect(() => {
     setForm(initialIssue ? {
@@ -55,7 +57,7 @@ export default function IssueForm({ issueTypes, assignees = [], initialIssue, de
       <label>Issue type<select required value={form.issueTypeId} onChange={(event) => setField('issueTypeId', event.target.value)}>
         {issueTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
       </select></label>
-      <label>Assignee account<input list="project-assignee-options" placeholder="Search account name" value={assigneeSearch} onChange={(event) => { const value = event.target.value; setAssigneeSearch(value); const member = assignees.find((item) => `${item.name} <${item.email}>` === value); setField('assigneeId', member?.user_id ?? ''); }} /><datalist id="project-assignee-options">{assignees.map((member) => <option key={member.user_id} value={`${member.name} <${member.email}>`}>{member.project_role}</option>)}</datalist></label>
+      <label>Assignee account<input list={assigneeListId} placeholder={restrictAssigneeToUserId === null ? 'Search account name' : 'Assign to yourself'} value={assigneeSearch} onChange={(event) => { const value = event.target.value; setAssigneeSearch(value); const member = selectableAssignees.find((item) => `${item.name} <${item.email}>` === value); setField('assigneeId', member?.user_id ?? ''); }} /><datalist id={assigneeListId}>{selectableAssignees.map((member) => <option key={member.user_id} value={`${member.name} <${member.email}>`}>{member.project_role}</option>)}</datalist>{restrictAssigneeToUserId !== null && <small className="field-help">Members can assign only themselves.</small>}</label>
       <label>Due date<input type="date" value={form.dueDate} onChange={(event) => setField('dueDate', event.target.value)} /></label>
       <label>Priority<select value={form.priority} onChange={(event) => setField('priority', event.target.value)}>
         {['lowest', 'low', 'medium', 'high', 'highest'].map((priority) => <option key={priority}>{priority}</option>)}

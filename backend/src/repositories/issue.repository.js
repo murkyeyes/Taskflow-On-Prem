@@ -16,6 +16,7 @@ const issueColumns = `issue.id,
                       issue.story_points,
                       issue.backlog_rank,
                       issue.created_at,
+                      issue.completed_at,
                       issue.updated_at`;
 
 async function list(projectId, filters, pagination, client = pool) {
@@ -35,6 +36,15 @@ async function list(projectId, filters, pagination, client = pool) {
     values.push(filters.search);
     conditions.push(`(issue.issue_key ILIKE '%' || $${values.length} || '%' OR issue.title ILIKE '%' || $${values.length} || '%')`);
   }
+  for (const [column, value] of [
+    ['created_at', filters.createdOn],
+    ['completed_at', filters.completedOn],
+  ]) {
+    if (value !== null) {
+      values.push(value);
+      conditions.push(`issue.${column} >= $${values.length}::date AND issue.${column} < $${values.length}::date + interval '1 day'`);
+    }
+  }
 
   const where = conditions.join(' AND ');
   const countResult = await client.query(
@@ -45,8 +55,9 @@ async function list(projectId, filters, pagination, client = pool) {
   );
   values.push(pagination.pageSize, (pagination.page - 1) * pagination.pageSize);
   const result = await client.query(
-    `SELECT ${issueColumns}
+    `SELECT ${issueColumns}, assignee.name AS assignee_name
        FROM issues AS issue
+       LEFT JOIN users AS assignee ON assignee.id = issue.assignee_id
       WHERE ${where}
       ORDER BY issue.backlog_rank, issue.created_at DESC, issue.id DESC
       LIMIT $${values.length - 1}
@@ -60,9 +71,9 @@ async function create(data, client = pool) {
   const result = await client.query(
     `INSERT INTO issues (
         project_id, issue_key, title, description, issue_type_id,
-        status_id, reporter_id, assignee_id, priority, metadata, due_date
+        status_id, reporter_id, assignee_id, priority, metadata, due_date, completed_at
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CASE WHEN $12 THEN now() ELSE NULL END)
      RETURNING ${issueColumns.replaceAll('issue.', '')}`,
     [
       data.projectId,
@@ -76,6 +87,7 @@ async function create(data, client = pool) {
       data.priority,
       data.metadata,
       data.dueDate,
+      data.isFinal,
     ],
   );
   return result.rows[0];
@@ -83,8 +95,9 @@ async function create(data, client = pool) {
 
 async function findByKey(issueKey, client = pool) {
   const result = await client.query(
-    `SELECT ${issueColumns}
+    `SELECT ${issueColumns}, assignee.name AS assignee_name
        FROM issues AS issue
+       LEFT JOIN users AS assignee ON assignee.id = issue.assignee_id
       WHERE issue.issue_key = $1`,
     [issueKey],
   );
@@ -93,10 +106,11 @@ async function findByKey(issueKey, client = pool) {
 
 async function lockByKey(issueKey, client = pool) {
   const result = await client.query(
-    `SELECT ${issueColumns}
+    `SELECT ${issueColumns}, assignee.name AS assignee_name
        FROM issues AS issue
+       LEFT JOIN users AS assignee ON assignee.id = issue.assignee_id
       WHERE issue.issue_key = $1
-      FOR UPDATE`,
+      FOR UPDATE OF issue`,
     [issueKey],
   );
   return result.rows[0] ?? null;
@@ -127,14 +141,18 @@ async function update(issueKey, changes, client = pool) {
   return result.rows[0] ?? null;
 }
 
-async function updateStatus(issueKey, statusId, client = pool) {
+async function updateStatus(issueKey, statusId, isFinal, client = pool) {
   const result = await client.query(
     `UPDATE issues
         SET status_id = $2,
+            completed_at = CASE
+              WHEN $3 THEN COALESCE(completed_at, now())
+              ELSE NULL
+            END,
             updated_at = now()
       WHERE issue_key = $1
       RETURNING ${issueColumns.replaceAll('issue.', '')}`,
-    [issueKey, statusId],
+    [issueKey, statusId, isFinal],
   );
   return result.rows[0] ?? null;
 }

@@ -26,6 +26,8 @@ async function list(request, response) {
     assigneeId: optionalInteger(request.query.assignee_id, 'assignee_id', { min: 1 }),
     issueTypeId: optionalInteger(request.query.issue_type_id, 'issue_type_id', { min: 1 }),
     search: optionalString(request.query.search, 'search', { min: 1, max: 120 }),
+    createdOn: optionalDate(request.query.created_on, 'created_on'),
+    completedOn: optionalDate(request.query.completed_on, 'completed_on'),
   };
   response.json(await issueService.listIssues(request.projectId, filters, parsePagination(request.query)));
 }
@@ -40,7 +42,7 @@ async function create(request, response) {
     statusId: optionalInteger(body.statusId, 'statusId', { min: 1 }),
     dueDate: optionalDate(body.dueDate, 'dueDate'),
     priority: body.priority === undefined ? 'medium' : requireEnum(body.priority, 'priority', priorities),
-  }, request.user.userId);
+  }, request.user.userId, request.projectRole);
   response.status(201).json({ issue });
 }
 
@@ -60,7 +62,7 @@ async function update(request, response) {
   if (Object.keys(changes).length === 0) {
     throw new HttpError(400, 'VALIDATION_ERROR', 'At least one issue field must be provided');
   }
-  response.json({ issue: await issueService.updateIssue(request.params.issueKey, changes) });
+  response.json({ issue: await issueService.updateIssue(request.params.issueKey, changes, request.user.userId, request.projectRole) });
 }
 
 async function changeStatus(request, response) {
@@ -69,6 +71,7 @@ async function changeStatus(request, response) {
     request.params.issueKey,
     requireInteger(body.statusId, 'statusId', { min: 1 }),
     request.user.userId,
+    request.projectRole,
   );
   response.json({ issue });
 }

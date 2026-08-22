@@ -1,5 +1,6 @@
 const issueRepository = require('../repositories/issue.repository');
 const workspaceRepository = require('../repositories/workspace.repository');
+const workflowStatusRepository = require('../repositories/workflowStatus.repository');
 const HttpError = require('../utils/httpError');
 const withTransaction = require('../utils/withTransaction');
 
@@ -24,13 +25,21 @@ async function saveSprint(projectId, sprintId, data, userId) {
   }
 }
 
-async function updatePlanning(issueKey, projectId, data) {
-  if (data.sprintId !== undefined && data.sprintId !== null && !await workspaceRepository.findSprint(projectId, data.sprintId)) {
-    throw new HttpError(400, 'SPRINT_PROJECT_MISMATCH', 'Sprint does not belong to this project');
-  }
-  const issue = await workspaceRepository.updatePlanning(issueKey, data);
-  if (!issue) throw notFound('Issue');
-  return issue;
+async function updatePlanning(issueKey, projectId, data, projectRole) {
+  return withTransaction(async (client) => {
+    const current = await issueRepository.lockByKey(issueKey, client);
+    if (!current || current.project_id !== projectId) throw notFound('Issue');
+    const currentStatus = await workflowStatusRepository.findById(projectId, current.status_id, client);
+    if (currentStatus?.is_final && projectRole !== 'admin') {
+      throw new HttpError(403, 'COMPLETED_ISSUE_LOCKED', 'Only an Admin can edit a completed issue');
+    }
+    if (data.sprintId !== undefined && data.sprintId !== null && !await workspaceRepository.findSprint(projectId, data.sprintId, client)) {
+      throw new HttpError(400, 'SPRINT_PROJECT_MISMATCH', 'Sprint does not belong to this project');
+    }
+    const issue = await workspaceRepository.updatePlanning(issueKey, data, client);
+    if (!issue) throw notFound('Issue');
+    return issue;
+  });
 }
 
 async function completeSprint(projectId, sprintId) {

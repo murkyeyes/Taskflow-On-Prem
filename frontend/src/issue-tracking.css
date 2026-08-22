@@ -1,0 +1,36 @@
+.issue-assignee,
+.issue-detail-assignee {
+  color: #b6c2cf;
+  font-size: 13px;
+}
+
+.issue-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.issue-dates span {
+  display: grid;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.issue-dates b {
+  color: #dcdfe4;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.field-help {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.completed-lock {
+  background: #3d3522;
+  color: #f8d477;
+}
