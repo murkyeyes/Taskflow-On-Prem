@@ -8,6 +8,7 @@ const {
   notFoundHandler,
 } = require('./middlewares/errorHandler.middleware');
 const authRoutes = require('./routes/auth.routes');
+const { attachmentRouter, issueAttachmentRouter } = require('./routes/attachment.routes');
 const { commentRouter, issueCommentRouter } = require('./routes/comment.routes');
 const { issueRouter, projectIssueRouter } = require('./routes/issue.routes');
 const issueTypeRoutes = require('./routes/issueType.routes');
@@ -34,8 +35,10 @@ app.use('/api/projects', updateRoutes);
 app.use('/api/projects', workspaceRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/issues', issueCommentRouter);
+app.use('/api/issues', issueAttachmentRouter);
 app.use('/api/issues', issueRouter);
 app.use('/api/comments', commentRouter);
+app.use('/api/attachments', attachmentRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

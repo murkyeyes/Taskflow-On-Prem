@@ -85,7 +85,7 @@ Backend phải tuân thủ dependency flow:
 
 ## 4. Database schema bắt buộc
 
-Schema chính thức gồm **14 bảng** sau khi người dùng phê duyệt mở rộng Jira-style ngày 2026-08-22:
+Schema chính thức gồm **15 bảng** sau khi người dùng phê duyệt report attachments ngày 2026-08-23:
 
 1. `users`
 2. `projects`
@@ -101,6 +101,7 @@ Schema chính thức gồm **14 bảng** sau khi người dùng phê duyệt m�
 12. `project_forms`
 13. `form_submissions`
 14. `development_links`
+15. `issue_attachments`
 
 `issues` được mở rộng với `sprint_id`, `due_date`, `story_points`, `backlog_rank` và
 `completed_at`. `completed_at` là `NULL` khi issue chưa hoàn thành, được đặt khi issue
@@ -300,6 +301,15 @@ trong cùng transaction với status history.
 
 Author/admin constraints phải được enforce ở backend.
 
+Comments API và dữ liệu cũ được giữ để tương thích, nhưng Issue Detail không còn hiển thị comment composer. Khu vực này được thay bằng **Report files**:
+
+- `GET /issues/:issueKey/attachments`
+- `POST /issues/:issueKey/attachments` nhận raw binary body, `X-File-Name`, và `Content-Type`
+- `GET /attachments/:id/download`
+- `DELETE /attachments/:id`
+
+Chỉ chấp nhận PDF, Word (`.doc`, `.docx`) và Excel (`.xls`, `.xlsx`), tối đa 10 MiB/file. File bytes và metadata phải nằm trong PostgreSQL để backup hiện tại bao phủ attachments. Viewer chỉ được list/download. Member được upload và chỉ xoá file do chính mình upload khi issue chưa final. Khi issue ở final status, mọi upload/delete của non-admin phải trả `403 COMPLETED_ISSUE_LOCKED`; Admin vẫn được upload/delete. Backend phải kiểm tra extension, MIME type và file signature, không tin client filename/MIME đơn thuần.
+
 ### 7.8 Polling
 
 Endpoint:
@@ -409,6 +419,7 @@ Polling nên được gom vào hook/service tương ứng như `usePolling`.
 - Summary phải lấy aggregate thật từ API; Backlog/Timeline/Development/Docs/Forms phải đọc/ghi dữ liệu thật theo RBAC.
 - Không thêm chart framework lớn; ưu tiên CSS/SVG/HTML thuần.
 - Login chỉ mô phỏng visual language của Jira và giữ email/password; public register UI/API bị loại bỏ. Account provisioning và phân quyền truy cập Space phải nằm trong trang Admin riêng `/teams`, không nằm trong settings của một Space. Chỉ application Admin được tạo tài khoản, gán account hiện có vào một hoặc nhiều Space với quyền viewer, hoặc thu hồi các assignment không phải admin; không thêm OAuth/social login nếu chưa được phê duyệt riêng.
+- Settings của mỗi Space phải cho Admin tạo, đổi tên, đổi màu và xoá issue type; tạo, đổi tên, sắp xếp workflow status, chọn đúng một default status, đánh dấu final/completed status và xoá status. Mọi thao tác phải dùng API theo `projectId`; backend phải chặn xoá type/status đang được issue sử dụng bằng `409`.
 - Board phải có server-backed search, assignee-by-account-name lookup/filter, filter/group controls, ngày tạo/ngày hoàn thành, inline create theo workflow column, admin-only add-column control, và complete-active-sprint action. Trường Assignee phải hỗ trợ gõ một phần hoặc toàn bộ tên account để lọc danh sách gợi ý và các card; chọn một gợi ý sẽ áp dụng bộ lọc chính xác, còn Everyone/Clear filters sẽ xoá bộ lọc. Card phải hiển thị assignee ngay dưới title cùng created/completed dates. Create issue phải hỗ trợ optional status, due date và project-member assignee; backend phải xác minh membership, self-assignment của Member và completed-lock.
 
 ### 9.2 Build output và production static folder

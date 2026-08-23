@@ -104,12 +104,25 @@ CREATE TABLE comments (
     updated_at TIMESTAMPTZ
 );
 
+-- ========== issue_attachments ==========
+CREATE TABLE issue_attachments (
+    id            INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    issue_id      INTEGER      NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    uploaded_by   INTEGER      NOT NULL REFERENCES users(id),
+    file_name     VARCHAR(255) NOT NULL,
+    media_type    VARCHAR(120) NOT NULL,
+    file_size     INTEGER      NOT NULL CHECK (file_size BETWEEN 1 AND 10485760),
+    file_data     BYTEA        NOT NULL,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
 -- ========== Indexes for common queries ==========
 CREATE INDEX idx_issues_project_id   ON issues(project_id);
 CREATE INDEX idx_issues_status_id    ON issues(status_id);
 CREATE INDEX idx_issues_assignee_id  ON issues(assignee_id);
 CREATE INDEX idx_issues_updated_at   ON issues(project_id, updated_at);  -- supports polling for "changes since time X"
 CREATE INDEX idx_comments_issue_id   ON comments(issue_id);
+CREATE INDEX idx_issue_attachments_issue_created ON issue_attachments(issue_id, created_at DESC);
 CREATE INDEX idx_status_history_issue_id ON issue_status_history(issue_id);
 CREATE INDEX idx_issue_types_project     ON issue_types(project_id);
 CREATE INDEX idx_workflow_statuses_project ON workflow_statuses(project_id);
@@ -202,6 +215,19 @@ General conventions:
 | Method | Path | Minimum Role | Description |
 |---|---|---|---|
 | GET | `/projects/:projectId/updates?since=<ISO timestamp>` | viewer | Return issues with `updated_at > since`, plus new comments for those issues. The client calls periodically (recommended every 5–10s) and uses the returned `serverTime` as `since` for the next request to avoid client/server clock drift |
+
+### 2.9 Issue report attachments
+
+The Issue Detail comments panel is replaced by a Report files panel. Legacy comment data and APIs remain available for compatibility, but no comment composer is rendered.
+
+| Method | Path | Minimum Role | Description |
+|---|---|---|---|
+| GET | `/issues/:issueKey/attachments` | viewer | List attachment metadata without binary data |
+| POST | `/issues/:issueKey/attachments` | member | Raw body up to 10 MiB; `X-File-Name` and `Content-Type` required; accepts `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx` |
+| GET | `/attachments/:id/download` | viewer | Download the file after effective Space access is verified |
+| DELETE | `/attachments/:id` | member uploader or admin | Member may delete only their own file and only while issue is not final; Admin may always delete |
+
+Upload runs in a transaction: lock the issue, resolve the current workflow status, reject non-admin mutation when `is_final`, validate extension/MIME/signature/size, insert attachment, then touch `issues.updated_at`. Deletion uses the same completed-lock and authorization rules. Bytes are stored as `BYTEA` so the existing `pg_dump -Fc` backup includes report files.
 
 ---
 
@@ -409,7 +435,7 @@ frontend/
 │   │   ├── LoginPage.jsx
 │   │   ├── ProjectListPage.jsx
 │   │   ├── ProjectBoardPage.jsx    # board with columns based on the project's workflow_statuses
-│   │   ├── IssueDetailPage.jsx     # issue details + comments
+│   │   ├── IssueDetailPage.jsx     # issue details + report attachments
 │   │   ├── ProjectSettingsPage.jsx # manage issue_types/workflow_statuses (admin)
 │   │   └── TeamsPage.jsx           # global account provisioning and Space access (application admin)
 │   │
@@ -459,7 +485,7 @@ This section is authoritative and extends Sections 1–4 without changing the re
 
 ### 5.1 Database additions
 
-The official schema now contains 14 tables. The original nine remain unchanged except for the planning columns added to `issues`.
+The official schema now contains 15 tables. The original nine remain unchanged except for the planning columns added to `issues`; `issue_attachments` stores the approved report-file metadata and bytes.
 
 ```sql
 CREATE TABLE sprints (
@@ -536,7 +562,7 @@ CREATE INDEX idx_form_submissions_form_created ON form_submissions(form_id, crea
 CREATE INDEX idx_development_links_project_created ON development_links(project_id, created_at DESC);
 ```
 
-The implementation migration must be idempotent for an existing Phase 1–9 database (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE/INDEX IF NOT EXISTS`). Fresh `schema.sql` must also yield the complete 14-table schema.
+The implementation migrations must be idempotent for an existing database (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE/INDEX IF NOT EXISTS`). Fresh `schema.sql` must yield the complete 15-table schema.
 
 ### 5.2 API additions and RBAC
 
@@ -568,7 +594,7 @@ The React project adds `components/layout/WorkspaceShell.jsx`, `Sidebar.jsx`, `P
 
 ## 6. Board controls and Admin Account Provisioning Expansion (2026-08-22)
 
-This approved expansion keeps the same 14-table schema and technology stack. Public self-registration is removed: `POST /api/auth/register` requires an authenticated user who is an `admin` member of at least one project. Initial deployment creates the bootstrap administrator via the approved seed/deployment process. The dedicated `/teams` application-administration page is the only UI that exposes account creation and cross-Space access management. Account provisioning is independent from Space membership: after creation, an application Admin explicitly grants existing accounts viewer access to selected Spaces or revokes non-admin assignments. Project Settings contains only Space workflow configuration.
+This approved expansion keeps the same 14-table schema and technology stack. Public self-registration is removed: `POST /api/auth/register` requires an authenticated user who is an `admin` member of at least one project. Initial deployment creates the bootstrap administrator via the approved seed/deployment process. The dedicated `/teams` application-administration page is the only UI that exposes account creation and cross-Space access management. Account provisioning is independent from Space membership: after creation, an application Admin explicitly grants existing accounts viewer access to selected Spaces or revokes non-admin assignments. Project Settings contains only Space workflow configuration. For its own `projectId`, an Admin can create, rename, recolor, and delete issue types; create, rename, reorder, select the single default, mark final/completed, and delete workflow statuses. Deletion remains blocked with `409` when referenced by an issue.
 
 `GET /api/projects/:projectId/assignees?search=` returns project members whose account name or email matches case-insensitively. It is used by the board issue composer and assignee filter; an issue may only be assigned to a member of its project. `GET /api/projects/:projectId/issues?search=` matches issue key/title case-insensitively. `/teams` uses the existing Admin-only `GET /api/auth/users?search=`, membership list/create/delete endpoints, and never exposes administrator-membership revocation.
 

@@ -238,3 +238,11 @@ Apply `backend/src/db/migrations/003-issue-completion.sql` once to an existing P
 ## 12. Dedicated account and Space-access administration (2026-08-22)
 
 The `/teams` administration feature reuses `users`, `projects`, `project_members`, and the existing authenticated account/member APIs. It requires no database migration, container, host port, or dependency. Deploy the rebuilt React assets through Caddy. Verify that only an application Admin sees Teams, account provisioning remains authenticated, viewer access can be granted and revoked per Space, administrator memberships cannot be revoked from the UI, and individual Space settings no longer contain account or membership controls.
+
+## 13. Per-Space issue type and workflow adjustment (2026-08-22)
+
+The expanded Space Settings UI reuses the existing issue-type and workflow-status tables and APIs, so it requires no migration or deployment-stack change. Refresh the React production assets through Caddy and verify create/update/delete issue types, create/update/reorder/delete workflow statuses, default/final flags, per-Space isolation, Admin-only mutations, and `409` protection for referenced types/statuses.
+
+## 14. Issue report attachments (2026-08-23)
+
+Apply `backend/src/db/migrations/004-issue-attachments.sql` before deploying the rebuilt backend. Fresh databases receive the same `issue_attachments` table and index from `schema.sql`, increasing the official schema to 15 tables. Report bytes are stored in PostgreSQL `BYTEA`, capped at 10 MiB per file, so the existing `pg_dump -Fc` backup and restore workflow includes them without a new volume, service, port, or external storage dependency. Deploy backend and frontend together, then verify PDF/Word/Excel upload, metadata list, authorized download/delete, viewer denial, completed-member lock, Admin override, and issue-cascade cleanup.

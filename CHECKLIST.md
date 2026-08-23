@@ -638,6 +638,47 @@ Chỉ thực hiện nếu khách cần truy cập ngoài LAN.
 
 ---
 
+## Phase 19 — Per-Space issue type and workflow adjustment
+
+> User-requested Space configuration enhancement dated 2026-08-22.
+
+### 19.1 Specification and controls
+
+- [x] Update `RULES.md` and both System Design documents for editable per-Space issue types and statuses
+- [x] Add issue-type create, rename, recolor, and delete controls
+- [x] Add workflow-status create, rename, reorder, default, completed/final, and delete controls
+- [x] Keep all configuration scoped to the active Space and restricted to Admins
+
+### 19.2 Verification and packaging
+
+- [x] Run PostgreSQL-backed configuration/RBAC tests and the frontend production build
+- [x] Refresh `frontend-dist/`, deploy through Caddy, and verify the live settings bundle
+
+---
+
+## Phase 20 — Issue report attachments
+
+> User-requested replacement of the Issue Detail comments panel dated 2026-08-23.
+
+### 20.1 Specification and persistence
+
+- [x] Update `RULES.md` and both System Design documents for report attachments and completed-issue locking
+- [x] Add the `issue_attachments` schema, index, and idempotent migration
+
+### 20.2 Backend and frontend
+
+- [x] Add list/upload/download/delete attachment APIs with Space RBAC, type/signature/size validation, uploader ownership, and Admin override
+- [x] Replace the Issue Detail comments UI with a Report files upload/list/download/delete panel
+- [x] Disable report-file mutation for non-admin roles after the issue reaches a final status
+
+### 20.3 Verification and packaging
+
+- [x] Run PostgreSQL integration coverage for file validation, RBAC, completed lock, and Admin override
+- [x] Run backend regression tests and the frontend production build
+- [x] Apply the migration, refresh `frontend-dist/`, rebuild/deploy through Caddy, and verify the live bundle/health route
+
+---
+
 ## Completion rule
 
 

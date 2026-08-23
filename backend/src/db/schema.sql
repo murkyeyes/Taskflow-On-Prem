@@ -102,6 +102,18 @@ CREATE TABLE comments (
     updated_at TIMESTAMPTZ
 );
 
+CREATE TABLE issue_attachments (
+    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    issue_id    INTEGER      NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    uploaded_by INTEGER      NOT NULL REFERENCES users(id),
+    file_name   VARCHAR(255) NOT NULL,
+    media_type  VARCHAR(120) NOT NULL,
+    file_size   INTEGER      NOT NULL CHECK (file_size BETWEEN 1 AND 10485760),
+    file_data   BYTEA        NOT NULL,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT issue_attachments_size_matches_data CHECK (octet_length(file_data) = file_size)
+);
+
 CREATE TABLE project_docs (
     id         INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     project_id INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -154,6 +166,7 @@ CREATE INDEX idx_issues_status_id ON issues(status_id);
 CREATE INDEX idx_issues_assignee_id ON issues(assignee_id);
 CREATE INDEX idx_issues_updated_at ON issues(project_id, updated_at);
 CREATE INDEX idx_comments_issue_id ON comments(issue_id);
+CREATE INDEX idx_issue_attachments_issue_created ON issue_attachments(issue_id, created_at DESC);
 CREATE INDEX idx_status_history_issue_id ON issue_status_history(issue_id);
 CREATE INDEX idx_issue_types_project ON issue_types(project_id);
 CREATE INDEX idx_workflow_statuses_project ON workflow_statuses(project_id);
