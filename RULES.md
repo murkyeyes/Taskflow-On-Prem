@@ -222,6 +222,13 @@ may create a Space.
 - `PATCH /projects/:projectId`
 - `DELETE /projects/:projectId`
 
+Space Settings must expose an Admin-only Space details form backed by
+`PATCH /projects/:projectId`. Admins may change `name` (1–200 trimmed characters)
+and set or clear `description` (maximum 10,000 characters). The Space `key` is
+immutable so existing issue keys and URLs remain stable. A successful rename must
+refresh the active header, sidebar Space list, home selector, and later API reads;
+members and viewers must receive `403` for direct update attempts.
+
 `POST /projects` accepts optional `viewerIds` and must add those existing accounts
 as `viewer` memberships in the same transaction as Space creation/default setup.
 

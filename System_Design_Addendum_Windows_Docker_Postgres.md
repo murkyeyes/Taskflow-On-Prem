@@ -246,3 +246,7 @@ The expanded Space Settings UI reuses the existing issue-type and workflow-statu
 ## 14. Issue report attachments (2026-08-23)
 
 Apply `backend/src/db/migrations/004-issue-attachments.sql` before deploying the rebuilt backend. Fresh databases receive the same `issue_attachments` table and index from `schema.sql`, increasing the official schema to 15 tables. Report bytes are stored in PostgreSQL `BYTEA`, capped at 10 MiB per file, so the existing `pg_dump -Fc` backup and restore workflow includes them without a new volume, service, port, or external storage dependency. Deploy backend and frontend together, then verify PDF/Word/Excel upload, metadata list, authorized download/delete, viewer denial, completed-member lock, Admin override, and issue-cascade cleanup.
+
+## 15. Admin Space details editing (2026-08-23)
+
+Space renaming and description editing reuse the existing `projects.name`, `projects.description`, and Admin-only `PATCH /api/projects/:projectId` path. No PostgreSQL migration, container, volume, port, or dependency is introduced. Refresh the React production assets through Caddy and verify the saved value appears immediately in the active header and sidebar, survives list/detail reloads, preserves the immutable Space key, and returns `403` for member/viewer mutations.

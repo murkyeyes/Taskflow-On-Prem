@@ -162,6 +162,13 @@ General conventions:
 | PATCH | `/projects/:projectId` | admin | Update `name`/`description` |
 | DELETE | `/projects/:projectId` | admin | Delete project (cascade all related data) |
 
+The Admin-only Space Settings screen contains a Space details editor. It sends the
+trimmed name and nullable description through the existing `PATCH` endpoint; the
+Space key is displayed read-only and cannot be changed. After success, client state
+must update the active Space header and every matching sidebar entry immediately,
+while subsequent home/list/detail reads return the persisted values. This feature
+does not add a table, column, endpoint, or dependency.
+
 ### 2.3 Project Members
 
 | Method | Path | Minimum Role | Description |

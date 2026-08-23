@@ -79,9 +79,16 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
 
   assert.equal((await request('admin', '/projects')).status, 200);
   assert.equal((await request('admin', `/projects/${projectId}`)).status, 200);
-  assert.equal((await request('admin', `/projects/${projectId}`, {
-    method: 'PATCH', body: { name: 'Renamed Project' },
-  })).status, 200);
+  const renameResponse = await request('admin', `/projects/${projectId}`, {
+    method: 'PATCH', body: { name: 'Renamed Space', description: 'Updated from Space settings' },
+  });
+  assert.equal(renameResponse.status, 200);
+  assert.deepEqual(
+    (({ name, description, key }) => ({ name, description, key }))((await renameResponse.json()).project),
+    { name: 'Renamed Space', description: 'Updated from Space settings', key: 'DEMO' },
+  );
+  const renamedList = (await (await request('admin', '/projects')).json()).projects;
+  assert.equal(renamedList.find((space) => space.id === projectId).name, 'Renamed Space');
 
   await pool.query("INSERT INTO project_members (project_id,user_id,project_role) VALUES ($1,$2,'member')", [projectId, users.member]);
   const privateProjectId = (await pool.query(
@@ -110,6 +117,9 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
 
   assert.equal((await request('member', `/projects/${projectId}`, {
     method: 'PATCH', body: { name: 'Forbidden rename' },
+  })).status, 403);
+  assert.equal((await request('viewer', `/projects/${projectId}`, {
+    method: 'PATCH', body: { name: 'Also forbidden' },
   })).status, 403);
   assert.equal((await request('viewer', `/projects/${projectId}`)).status, 200);
   assert.equal((await request('outsider', `/projects/${projectId}`)).status, 403);

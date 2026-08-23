@@ -679,6 +679,24 @@ Chỉ thực hiện nếu khách cần truy cập ngoài LAN.
 
 ---
 
+## Phase 21 — Admin Space details editing
+
+> User-requested Space rename function dated 2026-08-23.
+
+### 21.1 Specification and interface
+
+- [x] Update `RULES.md` and both System Design documents for Admin-only Space name/description editing
+- [x] Add the Space details editor to Space Settings with immutable key guidance and responsive layout
+- [x] Refresh the active header and all matching sidebar entries immediately after a successful save
+
+### 21.2 Verification and packaging
+
+- [x] Verify persisted rename/list results and Admin/member/viewer authorization against PostgreSQL
+- [x] Run backend regression tests and the frontend production build
+- [x] Refresh `frontend-dist/`, deploy through Caddy, and verify the live settings bundle/health route
+
+---
+
 ## Completion rule
 
 

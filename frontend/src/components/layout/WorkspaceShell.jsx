@@ -15,6 +15,16 @@ export default function WorkspaceShell() {
   const [createOpen, setCreateOpen] = useState(false); const [activityOpen, setActivityOpen] = useState(false); const [accountOpen, setAccountOpen] = useState(false); const [message, setMessage] = useState('');
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('taskflow-sidebar') === 'collapsed');
   useEffect(() => { Promise.all([projectApi.getProject(projectId), projectApi.listProjects(), projectApi.listIssueTypes(projectId), projectApi.listWorkflowStatuses(projectId), projectApi.listAssignees(projectId)]).then(([detail, list, typeResult, statusResult, assigneeResult]) => { setProject(detail.project); setSpaces(list.projects); setRole(list.projects.find((item) => item.id === Number(projectId))?.project_role ?? 'viewer'); setTypes(typeResult.issueTypes); setStatuses(statusResult.workflowStatuses); setAssignees(assigneeResult.assignees); }).catch((requestError) => setError(requestError.message)); }, [projectId]);
+  useEffect(() => {
+    function updateSpace(event) {
+      const updated = event.detail;
+      if (!updated?.id) return;
+      setSpaces((current) => current.map((space) => Number(space.id) === Number(updated.id) ? { ...space, ...updated } : space));
+      if (Number(updated.id) === Number(projectId)) setProject((current) => ({ ...current, ...updated }));
+    }
+    window.addEventListener('taskflow:space-updated', updateSpace);
+    return () => window.removeEventListener('taskflow:space-updated', updateSpace);
+  }, [projectId]);
   useEffect(() => { if (!search.trim()) { setSearchResults([]); return undefined; } const timer = setTimeout(() => { issueApi.listIssues(projectId, { search: search.trim(), page: 1, pageSize: 8 }).then((result) => setSearchResults(result.issues)).catch((requestError) => setError(requestError.message)); }, 180); return () => clearTimeout(timer); }, [projectId, search]);
   function toggle() { setCollapsed((value) => { localStorage.setItem('taskflow-sidebar', value ? 'expanded' : 'collapsed'); return !value; }); }
   async function signOut() { await logout(); navigate('/login'); }

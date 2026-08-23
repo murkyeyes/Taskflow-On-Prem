@@ -31,6 +31,24 @@ function WorkflowStatusEditor({ status, first, last, onSave, onDelete, onMove })
   </form>;
 }
 
+function SpaceDetailsEditor({ project, onSave }) {
+  const [name, setName] = useState(project.name);
+  const [description, setDescription] = useState(project.description || '');
+  useEffect(() => { setName(project.name); setDescription(project.description || ''); }, [project]);
+  return <form className="panel space-details-panel" onSubmit={(event) => {
+    event.preventDefault();
+    onSave({ name, description: description.trim() || null });
+  }}>
+    <div><h2>Space details</h2><p className="muted">Rename this Space or update its description. The Space key stays unchanged so issue keys and links remain stable.</p></div>
+    <div className="space-details-form">
+      <label><span>Space name</span><input aria-label="Space name" required minLength="1" maxLength="200" value={name} onChange={(event) => setName(event.target.value)} /></label>
+      <label><span>Space key</span><input aria-label="Space key" value={project.key} readOnly disabled /></label>
+      <label className="space-description-field"><span>Description</span><textarea aria-label="Space description" maxLength="10000" rows="4" value={description} onChange={(event) => setDescription(event.target.value)} /></label>
+    </div>
+    <div className="settings-form-actions"><button className="button primary" type="submit">Save Space details</button></div>
+  </form>;
+}
+
 export default function ProjectSettingsPage() {
   const { projectId } = useParams();
   const { user } = useAuth();
@@ -75,6 +93,10 @@ export default function ProjectSettingsPage() {
   if (role !== 'admin') return <div className="panel"><p className="alert error">Only Space administrators can manage settings.</p><Link to={`/projects/${projectId}/board`}>Back to board</Link></div>;
   return <div className="settings-page"><div className="section-heading"><div><p className="eyebrow">{project.key} · Space administration</p><h1>{project.name} settings</h1></div><Link className="button subtle" to={`/projects/${projectId}/board`}>Back to board</Link></div>{error && <p className="alert error">{error}</p>}{message && <p className="alert success">{message}</p>}
     <section className="settings-grid">
+      <SpaceDetailsEditor project={project} onSave={(changes) => mutate(async () => {
+        const result = await projectApi.updateProject(projectId, changes);
+        window.dispatchEvent(new CustomEvent('taskflow:space-updated', { detail: result.project }));
+      }, 'Space details updated.')} />
       <div className="panel settings-config-panel"><h2>Issue types</h2><p className="muted">Create, rename, recolor, or remove the issue types used only by this Space.</p><form onSubmit={(event) => submit(event, (data) => projectApi.createIssueType(projectId, { name: data.get('name'), color: data.get('color') }))} className="settings-create-row"><input name="name" placeholder="Bug, Story…" maxLength="50" required /><input aria-label="New issue type color" name="color" type="color" defaultValue="#4f46e5" /><button className="button primary">Add type</button></form><div className="settings-editor-list">{types.map((type) => <IssueTypeEditor key={type.id} type={type} onSave={(id, changes) => mutate(() => projectApi.updateIssueType(projectId, id, changes), 'Issue type updated.')} onDelete={(id) => mutate(() => projectApi.deleteIssueType(projectId, id), 'Issue type deleted.')} />)}</div></div>
       <div className="panel settings-config-panel"><h2>Workflow statuses</h2><p className="muted">Rename and reorder columns, choose the default for new issues, and mark completed statuses.</p><form onSubmit={(event) => submit(event, (data) => projectApi.createWorkflowStatus(projectId, { name: data.get('name'), position: statuses.length, isDefault: data.has('isDefault'), isFinal: data.has('isFinal') }))} className="settings-create-row workflow-create-row"><input name="name" placeholder="In review" maxLength="50" required /><label className="compact-choice"><input name="isDefault" type="checkbox" /><span>Default</span></label><label className="compact-choice"><input name="isFinal" type="checkbox" /><span>Completed</span></label><button className="button primary">Add status</button></form><div className="settings-editor-list">{statuses.map((status, index) => <WorkflowStatusEditor key={status.id} status={status} first={index === 0} last={index === statuses.length - 1} onMove={moveStatus} onSave={(id, changes) => mutate(() => projectApi.updateWorkflowStatus(projectId, id, changes), 'Workflow status updated.')} onDelete={(id) => mutate(() => projectApi.deleteWorkflowStatus(projectId, id), 'Workflow status deleted.')} />)}</div></div>
     </section><p className="muted">Signed in as user #{user?.id}. Changes are restricted to administrators.</p></div>;
