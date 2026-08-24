@@ -34,16 +34,18 @@ function WorkflowStatusEditor({ status, first, last, onSave, onDelete, onMove })
 function SpaceDetailsEditor({ project, onSave }) {
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description || '');
-  useEffect(() => { setName(project.name); setDescription(project.description || ''); }, [project]);
+  const [enabledFeatures,setEnabledFeatures]=useState(project.enabled_features || ['summary','backlog','board','development','timeline','docs','forms']);
+  useEffect(() => { setName(project.name); setDescription(project.description || ''); setEnabledFeatures(project.enabled_features || ['summary','backlog','board','development','timeline','docs','forms']); }, [project]);
   return <form className="panel space-details-panel" onSubmit={(event) => {
     event.preventDefault();
-    onSave({ name, description: description.trim() || null });
+    onSave({ name, description: description.trim() || null, enabledFeatures });
   }}>
     <div><h2>Space details</h2><p className="muted">Rename this Space or update its description. The Space key stays unchanged so issue keys and links remain stable.</p></div>
     <div className="space-details-form">
       <label><span>Space name</span><input aria-label="Space name" required minLength="1" maxLength="200" value={name} onChange={(event) => setName(event.target.value)} /></label>
       <label><span>Space key</span><input aria-label="Space key" value={project.key} readOnly disabled /></label>
       <label className="space-description-field"><span>Description</span><textarea aria-label="Space description" maxLength="10000" rows="4" value={description} onChange={(event) => setDescription(event.target.value)} /></label>
+      <fieldset className="service-picker space-description-field"><legend>Space services</legend>{['backlog','development','timeline','docs','forms'].map((feature)=><label key={feature}><input type="checkbox" checked={enabledFeatures.includes(feature)} onChange={(event)=>setEnabledFeatures((current)=>event.target.checked?[...current,feature]:current.filter((item)=>item!==feature))}/><span>{feature}</span></label>)}<small>Summary and Board remain available for every Space.</small></fieldset>
     </div>
     <div className="settings-form-actions"><button className="button primary" type="submit">Save Space details</button></div>
   </form>;

@@ -17,6 +17,7 @@ const projectRoutes = require('./routes/project.routes');
 const workflowStatusRoutes = require('./routes/workflowStatus.routes');
 const updateRoutes = require('./routes/update.routes');
 const workspaceRoutes = require('./routes/workspace.routes');
+const settingsRoutes = require('./routes/settings.routes');
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use(cookieParser());
 app.get('/api/health', (request, response) => response.json({ status: 'ok' }));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/settings', settingsRoutes);
 app.use('/api/projects', memberRoutes);
 app.use('/api/projects', issueTypeRoutes);
 app.use('/api/projects', workflowStatusRoutes);

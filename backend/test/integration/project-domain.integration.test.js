@@ -69,7 +69,7 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
     creator_role: 'admin',
     last_number: 0,
     type_count: 3,
-    status_count: 3,
+    status_count: 4,
     default_count: 1,
     final_count: 1,
     viewer_count: 2,
@@ -177,7 +177,7 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
   });
   assert.equal(reorderResponse.status, 200);
   const reordered = (await reorderResponse.json()).workflowStatuses;
-  assert.deepEqual(reordered.map((status) => status.position), [0, 1, 2, 3]);
+  assert.deepEqual(reordered.map((status) => status.position), reversedIds.map((_, index) => index));
   assert.deepEqual(reordered.map((status) => status.id), reversedIds);
 
   await pool.query(

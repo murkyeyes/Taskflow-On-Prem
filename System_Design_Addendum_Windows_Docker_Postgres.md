@@ -250,3 +250,19 @@ Apply `backend/src/db/migrations/004-issue-attachments.sql` before deploying the
 ## 15. Admin Space details editing (2026-08-23)
 
 Space renaming and description editing reuse the existing `projects.name`, `projects.description`, and Admin-only `PATCH /api/projects/:projectId` path. No PostgreSQL migration, container, volume, port, or dependency is introduced. Refresh the React production assets through Caddy and verify the saved value appears immediately in the active header and sidebar, survives list/detail reloads, preserves the immutable Space key, and returns `403` for member/viewer mutations.
+
+## 16. Settings center and Space templates (approved 2026-08-23)
+
+Apply `backend/src/db/migrations/005-settings-and-space-templates.sql` before the
+rebuilt application. It adds the `user_preferences` and singleton
+`system_settings` tables plus JSONB template/service columns on `projects`, bringing
+the fresh and upgraded schema to 17 tables. No new container, volume, host port, or
+external dependency is introduced. Existing Spaces are backfilled as `kanban` with
+all current views enabled, preserving navigation after upgrade.
+
+Deployment order is: `pg_dump -Fc` backup; apply migration 005; run the focused
+PostgreSQL settings/template/RBAC test and full regression suites; rebuild frontend
+assets and protected app image; deploy through Caddy; verify personal preference and
+password APIs, Admin-only settings denial, template transaction defaults, per-Space
+feature persistence, health, and browser route protection. Restore the pre-migration
+dump and previous images/assets together if rollback is required.

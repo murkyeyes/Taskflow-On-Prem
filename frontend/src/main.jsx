@@ -4,12 +4,13 @@ import { createRoot } from 'react-dom/client';
 
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
+import { LocaleProvider } from './contexts/LocaleContext';
 import './styles.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <AuthProvider><App /></AuthProvider>
+      <AuthProvider><LocaleProvider><App /></LocaleProvider></AuthProvider>
     </BrowserRouter>
   </StrictMode>,
 );

@@ -1,4 +1,6 @@
 const projectService = require('../services/project.service');
+const { featureKeys, findTemplate } = require('../config/spaceTemplates');
+const settingsService = require('../services/settings.service');
 const HttpError = require('../utils/httpError');
 const {
   optionalString,
@@ -15,12 +17,30 @@ function normalizeProjectKey(value) {
   return key;
 }
 
+function normalizeTemplate(value = 'kanban') {
+  const key = requireString(value, 'templateKey', { min: 1, max: 40 });
+  if (!findTemplate(key)) throw new HttpError(400, 'VALIDATION_ERROR', 'templateKey is not supported');
+  return key;
+}
+
+function normalizeFeatures(value, fallback, available) {
+  if (value === undefined) return featureKeys.filter((key) => fallback.includes(key) && available.has(key));
+  if (!Array.isArray(value) || value.some((item) => !featureKeys.includes(item)) || new Set(value).size !== value.length) throw new HttpError(400, 'VALIDATION_ERROR', 'enabledFeatures contains unsupported or duplicate features');
+  if (value.some((item) => !available.has(item))) throw new HttpError(400, 'APP_DISABLED', 'One or more selected Space services are disabled in Apps settings');
+  const features = [...new Set(['summary', 'board', ...value])];
+  return featureKeys.filter((key) => features.includes(key));
+}
+
 async function list(request, response) {
   response.json({ projects: await projectService.listProjects(request.user.userId) });
 }
 
 async function create(request, response) {
   const body = requireObject(request.body);
+  const templateKey = normalizeTemplate(body.templateKey);
+  const template = findTemplate(templateKey);
+  const system = await settingsService.getSystem();
+  const available = new Set(['summary', 'backlog', 'board', ...system.enabled_apps]);
   if (body.viewerIds !== undefined && !Array.isArray(body.viewerIds)) throw new HttpError(400, 'VALIDATION_ERROR', 'viewerIds must be an array');
   const viewerIds = [...new Set((body.viewerIds ?? []).map((id) => requireInteger(id, 'viewerIds item', { min: 1 })))];
   if (viewerIds.length > 100) throw new HttpError(400, 'VALIDATION_ERROR', 'viewerIds must contain at most 100 accounts');
@@ -28,6 +48,8 @@ async function create(request, response) {
     key: normalizeProjectKey(body.key),
     name: requireString(body.name, 'name', { min: 1, max: 200 }),
     description: optionalString(body.description, 'description', { min: 1, max: 10_000 }),
+    templateKey,
+    enabledFeatures: normalizeFeatures(body.enabledFeatures, template.enabledFeatures, available),
     viewerIds,
   }, request.user.userId);
   response.status(201).json({ project });
@@ -45,6 +67,10 @@ async function update(request, response) {
   }
   if (body.description !== undefined) {
     changes.description = optionalString(body.description, 'description', { min: 1, max: 10_000 });
+  }
+  if (body.enabledFeatures !== undefined) {
+    const [system, currentProject] = await Promise.all([settingsService.getSystem(), projectService.getProject(request.projectId)]);
+    changes.enabledFeatures = normalizeFeatures(body.enabledFeatures, [], new Set(['summary', 'backlog', 'board', ...system.enabled_apps, ...(currentProject.enabled_features ?? [])]));
   }
   if (Object.keys(changes).length === 0) {
     throw new HttpError(400, 'VALIDATION_ERROR', 'At least one project field must be provided');

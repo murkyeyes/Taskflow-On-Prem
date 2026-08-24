@@ -15,15 +15,16 @@ export default function Sidebar({ collapsed, onToggle, project, spaces = [] }) {
       <div className="side-section"><Link to="/"><span>Spaces</span></Link>{canCreate && <Link className="space-add" to="/spaces/new" aria-label="Create Space" title="Create Space">＋</Link>}</div>
       <div className="space-links">{spaces.map((space) => {
         const active = Number(project?.id) === Number(space.id); const base = `/projects/${space.id}`;
+        const enabled = space.enabled_features || ['summary','backlog','board','development','timeline','docs','forms'];
         return <div className="space-link-group" key={space.id}>
           <NavLink className={`project-side-link ${active ? 'current-space' : ''}`} to={`${base}/summary`}><span className="project-avatar">{space.key.slice(0, 1)}</span><b>{space.name}</b></NavLink>
           {active && <div className="side-subnav">
-            <NavLink to={`${base}/backlog`}>☷ <b>Backlog</b></NavLink>
-            <NavLink to={`${base}/board`}>▥ <b>Board</b></NavLink>
-            <NavLink to={`${base}/timeline`}>⌁ <b>Timeline</b></NavLink>
-            <NavLink to={`${base}/development`}>‹/› <b>Development</b></NavLink>
-            <NavLink to={`${base}/docs`}>▤ <b>Docs</b></NavLink>
-            <NavLink to={`${base}/forms`}>☷ <b>Forms</b></NavLink>
+            {enabled.includes('backlog')&&<NavLink to={`${base}/backlog`}>☷ <b>Backlog</b></NavLink>}
+            {enabled.includes('board')&&<NavLink to={`${base}/board`}>▥ <b>Board</b></NavLink>}
+            {enabled.includes('timeline')&&<NavLink to={`${base}/timeline`}>⌁ <b>Timeline</b></NavLink>}
+            {enabled.includes('development')&&<NavLink to={`${base}/development`}>‹/› <b>Development</b></NavLink>}
+            {enabled.includes('docs')&&<NavLink to={`${base}/docs`}>▤ <b>Docs</b></NavLink>}
+            {enabled.includes('forms')&&<NavLink to={`${base}/forms`}>☷ <b>Forms</b></NavLink>}
           </div>}
         </div>;
       })}</div>

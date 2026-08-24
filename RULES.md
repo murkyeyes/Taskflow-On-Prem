@@ -614,3 +614,33 @@ và nêu:
 5. Chờ người dùng xác nhận.
 
 Không tự thay đổi trước khi được duyệt.
+
+---
+
+## 18. Settings, Space services, and templates (approved 2026-08-23)
+
+This section supersedes the earlier “no templates/additional tables” limitation.
+The stack remains React + Express + PostgreSQL; no external marketplace service or
+new runtime dependency is allowed.
+
+- Every authenticated account may open **General settings** and **Notification settings**.
+- General settings persist language and time zone and provide a current-password-protected password change.
+- A saved language preference is loaded for every authenticated session, sets the document locale, and applies to the entire authenticated UI (navigation, Space views, work-item screens, forms, and settings); changing it must not require a manual refresh.
+- Notification settings persist email and in-app notification preferences.
+- Only an application Admin may open **System**, **Apps**, **Spaces**, and **Work items** settings or call their management APIs.
+- System settings persist instance name, default language/time zone, and global notification availability.
+- Apps settings persist the globally enabled built-in services: `development`, `timeline`, `docs`, and `forms`.
+- Space settings list/search every Space, link to its settings, and expose template-based creation.
+- Work-items settings provide an Admin reference/entry point to each Space's issue types and workflow statuses.
+
+Built-in Space templates are code-owned, read-only definitions: `kanban`, `scrum`,
+`work_requests`, `business`, and `personal`. Each specifies initial issue types,
+workflow statuses, and enabled services/views. `POST /projects` accepts
+`templateKey` plus an optional `enabledFeatures` subset. Space creation must still
+seed membership, sequence, types, and statuses in one transaction. `projects.key`
+remains immutable. Per-Space enabled features are persisted in JSONB and determine
+which header/sidebar routes are displayed; `summary` and `board` are mandatory.
+
+The official schema contains 17 tables after adding `user_preferences` and
+`system_settings`, plus `projects.template_key` and `projects.enabled_features`.
+Migration 005 must be idempotent and safe for existing Spaces.

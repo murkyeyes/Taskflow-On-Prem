@@ -1,0 +1,12 @@
+const express = require('express');
+const controller = require('../controllers/settings.controller');
+const { requireAuth } = require('../middlewares/auth.middleware');
+const { requireAccountAdmin } = require('../middlewares/rbac.middleware');
+const router = express.Router();
+router.get('/me', requireAuth, controller.getMe);
+router.patch('/me', requireAuth, controller.updateMe);
+router.patch('/me/password', requireAuth, controller.changePassword);
+router.get('/system', requireAuth, requireAccountAdmin, controller.getSystem);
+router.patch('/system', requireAuth, requireAccountAdmin, controller.updateSystem);
+router.get('/templates', requireAuth, controller.listTemplates);
+module.exports = router;

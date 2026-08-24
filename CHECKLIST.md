@@ -697,6 +697,39 @@ Chỉ thực hiện nếu khách cần truy cập ngoài LAN.
 
 ---
 
+## Phase 22 — Settings center, Admin services, and Space templates
+
+> User-approved design deviation and Jira-style settings expansion dated 2026-08-23.
+
+### 22.1 Official specification and persistence
+
+- [x] Synchronize `RULES.md` and both System Design documents with settings/templates/services
+- [x] Add idempotent migration 005 and the matching 17-table fresh schema
+- [x] Add five immutable Space template definitions and validated per-Space feature storage
+
+### 22.2 Backend APIs and RBAC
+
+- [x] Add personal preference, notification, and current-password-protected password APIs
+- [x] Add Admin-only system/apps settings APIs
+- [x] Extend atomic Space create/update for template defaults and enabled services
+- [x] Add PostgreSQL integration coverage for persistence, template seeding, and Admin/member denial
+
+### 22.3 Frontend
+
+- [x] Add role-aware gear menu and universal General/Notification settings
+- [x] Add Admin-only System, Apps, Spaces, and Work items destinations
+- [x] Add template gallery and service selection to Create Space
+- [x] Hide disabled Space services from header/sidebar navigation
+
+### 22.4 Verification and deployment
+
+- [x] Run backend regression/integration tests and frontend production build
+- [x] Apply migration, refresh production assets, rebuild/deploy through Caddy, and verify health
+- [x] Verify settings/template route protection and rendered controls in the browser
+- [x] Load saved language preferences on session start and apply the selected language immediately across the authenticated UI
+
+---
+
 ## Completion rule
 
 

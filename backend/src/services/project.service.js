@@ -1,5 +1,6 @@
 const defaultIssueTypes = require('../db/defaults/defaultIssueTypes');
 const defaultWorkflowStatuses = require('../db/defaults/defaultWorkflowStatuses');
+const { findTemplate } = require('../config/spaceTemplates');
 const issueSequenceRepository = require('../repositories/issueSequence.repository');
 const issueTypeRepository = require('../repositories/issueType.repository');
 const memberRepository = require('../repositories/member.repository');
@@ -14,8 +15,9 @@ async function listProjects(userId) {
 }
 
 async function createProject(data, userId, defaults = {}) {
-  const issueTypes = defaults.issueTypes ?? defaultIssueTypes;
-  const workflowStatuses = defaults.workflowStatuses ?? defaultWorkflowStatuses;
+  const template = findTemplate(data.templateKey ?? 'kanban');
+  const issueTypes = defaults.issueTypes ?? template?.issueTypes ?? defaultIssueTypes;
+  const workflowStatuses = defaults.workflowStatuses ?? template?.workflowStatuses ?? defaultWorkflowStatuses;
 
   try {
     return await withTransaction(async (client) => {

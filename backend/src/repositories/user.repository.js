@@ -32,6 +32,15 @@ async function findById(id, client = pool) {
   return result.rows[0] ?? null;
 }
 
+async function findWithPasswordById(id, client = pool) {
+  const result = await client.query('SELECT id, name, email, password_hash, created_at FROM users WHERE id = $1', [id]);
+  return result.rows[0] ?? null;
+}
+
+async function updatePasswordHash(id, passwordHash, client = pool) {
+  return (await client.query('UPDATE users SET password_hash = $2 WHERE id = $1 RETURNING id', [id, passwordHash])).rowCount === 1;
+}
+
 async function search(search = '', client = pool) {
   const result = await client.query(
     `SELECT ${publicColumns}
@@ -53,6 +62,8 @@ module.exports = {
   create,
   findByEmail,
   findById,
+  findWithPasswordById,
   findExistingIds,
   search,
+  updatePasswordHash,
 };

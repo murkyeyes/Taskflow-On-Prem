@@ -623,7 +623,68 @@ Space isolation is enforced through the existing RBAC middleware. A non-admin vi
 
 The sidebar Spaces header contains an Admin-only Create Space action linking to `/spaces/new`. The creation screen retains the canonical `POST /api/projects` transaction and account-name viewer selection. No templates, additional tables, or new service are introduced.
 
+Section 10 supersedes the final sentence above following explicit user approval on 2026-08-23.
+
 An account with at least one `project_role = 'admin'` membership is the application Admin. `GET /api/projects` returns every Space to that account and the RBAC resolver grants effective `admin` access on every Space/resource. Non-admin accounts receive only their assigned Spaces and retain viewer-only access. This effective Admin scope is derived from existing `project_members`; no schema migration is required.
+
+## 10. Settings center, Space services, and templates (approved 2026-08-23)
+
+### 10.1 Persistence
+
+`user_preferences` is a one-to-one child of `users` with `locale`, `time_zone`,
+`email_notifications`, `in_app_notifications`, and `updated_at`. Missing rows are
+read using documented defaults and are created by upsert on the first change.
+The frontend loads this preference for each authenticated session, sets the HTML
+document locale, and applies the translated authenticated UI—including navigation,
+Space views, work-item screens, forms, and settings—immediately after a successful
+locale update without requiring a manual refresh.
+
+`system_settings` is a singleton row (`id = 1`) containing `instance_name`,
+`default_locale`, `default_time_zone`, global email/in-app notification switches,
+`enabled_apps JSONB`, and `updated_at`. `enabled_apps` is an array limited to the
+built-in app keys `development`, `timeline`, `docs`, and `forms`.
+
+`projects` adds `template_key VARCHAR(40) NOT NULL DEFAULT 'kanban'` and
+`enabled_features JSONB NOT NULL`. The supported feature keys are `summary`,
+`backlog`, `board`, `development`, `timeline`, `docs`, and `forms`; `summary` and
+`board` are mandatory. The official schema is 17 tables. Migration 005 uses
+`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`, and seeds singleton
+defaults without overwriting configured values.
+
+### 10.2 APIs and authorization
+
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| GET/PATCH | `/settings/me` | authenticated | Read/update language, time zone, and personal notification preferences |
+| PATCH | `/settings/me/password` | authenticated | Verify current password and replace it with a bcrypt hash |
+| GET/PATCH | `/settings/system` | application Admin | Read/update system defaults, notification availability, and enabled built-in apps |
+| GET | `/settings/templates` | authenticated | Return the five code-owned template definitions |
+| POST | `/projects` | application Admin | Accept `templateKey`, `enabledFeatures`, and existing creation fields |
+| PATCH | `/projects/:projectId` | Space/application Admin | Update name/description and validated `enabledFeatures` |
+
+The four Admin settings destinations are System, Apps, Spaces, and Work items.
+General and Notification destinations are available to every authenticated account.
+Direct non-Admin requests to System/Apps/Spaces/Work-items management return `403`.
+
+### 10.3 Template transaction
+
+Templates are immutable JavaScript definitions, not database rows: Kanban, Scrum,
+Work requests, Business project, and Personal tasks. A template supplies its issue
+types, ordered statuses (exactly one default and at least one final), and default
+features. `POST /projects` validates the template and optional feature override
+before `BEGIN`; the existing atomic creation transaction then creates the project,
+creator Admin membership, selected viewers, issue sequence, and template defaults.
+Any failure rolls back all records.
+
+### 10.4 Frontend
+
+The top gear opens a role-aware settings menu. `/settings/general` and
+`/settings/notifications` are universal. `/settings/system`, `/settings/apps`,
+`/settings/spaces`, and `/settings/work-items` are Admin-only and redirect/deny
+non-Admins. Space creation starts with a template gallery and then permits the Admin
+to enable or disable optional services. ProjectHeader and Sidebar render only the
+features stored for that Space; disabled service URLs remain protected by the same
+Space RBAC and the UI provides no navigation to them.
 
 ## 9. Issue completion dates, immutable completion, and self-assignment (2026-08-22)
 
