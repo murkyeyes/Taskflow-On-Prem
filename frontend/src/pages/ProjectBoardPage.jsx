@@ -33,7 +33,7 @@ export default function ProjectBoardPage() {
   }), []);
   usePolling({ enabled: Boolean(project), fetchUpdates: (since) => getProjectUpdates(projectId, since), onUpdates: mergeUpdates });
   const canEdit = ['admin', 'member'].includes(role); const activeSprint = sprints.find((sprint) => sprint.status === 'active');
-  const issueAssignees = role === 'admin' ? assignees : assignees.filter((member) => member.user_id === user?.id);
+  const issueAssignees = useMemo(() => role === 'admin' ? assignees : assignees.filter((member) => member.user_id === user?.id), [assignees, role, user?.id]);
   const visibleIssues = useMemo(() => { const assigneeTerm = assigneeSearch.trim().toLowerCase(); return issues.filter((issue) => (!assigneeId ? (!assigneeTerm || (issue.assignee_name ?? '').toLowerCase().includes(assigneeTerm)) : issue.assignee_id === Number(assigneeId)) && (!priority || issue.priority === priority) && (!statusId || issue.status_id === Number(statusId))); }, [assigneeId, assigneeSearch, issues, priority, statusId]);
   const columns = useMemo(() => {
     if (groupBy === 'status') return statuses.map((status) => ({ status, issues: visibleIssues.filter((issue) => issue.status_id === status.id) }));

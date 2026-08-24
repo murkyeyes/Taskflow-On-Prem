@@ -85,7 +85,7 @@ Backend phải tuân thủ dependency flow:
 
 ## 4. Database schema bắt buộc
 
-Schema chính thức gồm **15 bảng** sau khi người dùng phê duyệt report attachments ngày 2026-08-23:
+Schema chính thức gồm **17 bảng** sau các mở rộng report attachments và settings đã được duyệt:
 
 1. `users`
 2. `projects`
@@ -102,6 +102,8 @@ Schema chính thức gồm **15 bảng** sau khi người dùng phê duyệt rep
 13. `form_submissions`
 14. `development_links`
 15. `issue_attachments`
+16. `user_preferences`
+17. `system_settings`
 
 `issues` được mở rộng với `sprint_id`, `due_date`, `story_points`, `backlog_rank` và
 `completed_at`. `completed_at` là `NULL` khi issue chưa hoàn thành, được đặt khi issue
@@ -199,11 +201,14 @@ Các endpoint bắt buộc:
 - `POST /auth/login`
 - `POST /auth/logout`
 - `GET /auth/me`
+- `DELETE /auth/users/:userId` (Admin soft-delete/deactivation only)
 
 JWT:
 
 - lưu trong HttpOnly Cookie tên `token`;
 - không lưu token ở localStorage;
+- `requireAuth` phải kiểm tra account vẫn active trên mỗi request để token cũ của
+  account đã bị deactivate không tiếp tục truy cập được;
 - `requireAuth` áp dụng cho mọi route trừ login. `POST /auth/register` còn yêu cầu
   người gọi đang đăng nhập và có ít nhất một membership `project_role = admin`.
   Public self-registration bị cấm. Tài khoản admin bootstrap được tạo bằng `seed.sql`
@@ -229,8 +234,9 @@ immutable so existing issue keys and URLs remain stable. A successful rename mus
 refresh the active header, sidebar Space list, home selector, and later API reads;
 members and viewers must receive `403` for direct update attempts.
 
-`POST /projects` accepts optional `viewerIds` and must add those existing accounts
-as `viewer` memberships in the same transaction as Space creation/default setup.
+`POST /projects` accepts the backward-compatible optional `viewerIds` field and must
+add those selected accounts as editable `member` memberships in the same transaction
+as Space creation/default setup.
 
 Khi `POST /projects`:
 - creator tự động thành `admin`;
@@ -247,10 +253,10 @@ Khi `POST /projects`:
 - `DELETE /projects/:projectId/members/:userId`
 - `GET /projects/:projectId/assignees?search=<account name or email>`
 
-New Space assignments are viewer-only. Admin selects accounts; backend must reject
-attempts to assign `member` or another `admin` through the assignment endpoints.
-Legacy `member` rows may remain for backward compatibility, but they are not offered
-by the Space-management UI.
+New Space assignments are `member` access by default. Admin selects accounts; the
+backend must reject attempts to grant `admin` or new `viewer` assignments through
+the Teams access controls. Existing explicit `viewer` rows remain readable and
+read-only for backward compatibility.
 
 ### 7.4 Issue Types
 
@@ -382,11 +388,20 @@ Frontend `RoleGuard` chỉ dùng để ẩn/hiện UI, không thay thế backend
 
 Khi resolve quyền từ `issueKey`, backend phải xác định project sở hữu issue trước khi check role.
 
-Space visibility uses two scopes. An account with at least one `admin` membership is
-the application Admin and may list and administer every Space. All other accounts may
-list and read only Spaces in which they have a `project_members` row; direct requests
-to unassigned Space/resources must return `403`. Assigned non-admin accounts use
-`viewer` and therefore have read-only access.
+Space visibility uses two scopes. Application Admin/Overall Admin accounts may list
+and administer every Space. All other accounts may list only Spaces in which they
+have a `project_members` row; direct requests to unassigned Space/resources must
+return `403`. A `member` row permits the approved non-admin mutations while an
+explicit legacy `viewer` row remains read-only.
+
+Account removal is a soft delete. Admin may deactivate Member accounts; Overall
+Admin may deactivate Member or Admin accounts. Self-deactivation and deactivation of
+the Overall Admin are forbidden. Deactivation sets `users.deactivated_at` and
+`users.deactivated_by`, removes current `project_members` access, rejects all future
+login/authenticated requests, and excludes the account from active account/assignee
+searches. The `users` row must never be hard-deleted: issue reporter/assignee,
+status-history, comment, attachment, document, form, sprint, development, and Space
+creator attribution must remain queryable.
 
 ---
 
@@ -425,7 +440,7 @@ Polling nên được gom vào hook/service tương ứng như `usePolling`.
 - Trạng thái thu gọn sidebar có thể lưu trong React state/localStorage; JWT vẫn tuyệt đối không được lưu trong localStorage.
 - Summary phải lấy aggregate thật từ API; Backlog/Timeline/Development/Docs/Forms phải đọc/ghi dữ liệu thật theo RBAC.
 - Không thêm chart framework lớn; ưu tiên CSS/SVG/HTML thuần.
-- Login chỉ mô phỏng visual language của Jira và giữ email/password; public register UI/API bị loại bỏ. Account provisioning và phân quyền truy cập Space phải nằm trong trang Admin riêng `/teams`, không nằm trong settings của một Space. Chỉ application Admin được tạo tài khoản, gán account hiện có vào một hoặc nhiều Space với quyền viewer, hoặc thu hồi các assignment không phải admin; không thêm OAuth/social login nếu chưa được phê duyệt riêng.
+- Login chỉ mô phỏng visual language của Jira và giữ email/password; public register UI/API bị loại bỏ. Account provisioning và phân quyền truy cập Space phải nằm trong trang Admin riêng `/teams`, không nằm trong settings của một Space. Chỉ application Admin được tạo tài khoản, gán account hiện có vào một hoặc nhiều Space với quyền member có thể chỉnh sửa công việc, hoặc thu hồi các assignment không phải admin; không thêm OAuth/social login nếu chưa được phê duyệt riêng.
 - Settings của mỗi Space phải cho Admin tạo, đổi tên, đổi màu và xoá issue type; tạo, đổi tên, sắp xếp workflow status, chọn đúng một default status, đánh dấu final/completed status và xoá status. Mọi thao tác phải dùng API theo `projectId`; backend phải chặn xoá type/status đang được issue sử dụng bằng `409`.
 - Board phải có server-backed search, assignee-by-account-name lookup/filter, filter/group controls, ngày tạo/ngày hoàn thành, inline create theo workflow column, admin-only add-column control, và complete-active-sprint action. Trường Assignee phải hỗ trợ gõ một phần hoặc toàn bộ tên account để lọc danh sách gợi ý và các card; chọn một gợi ý sẽ áp dụng bộ lọc chính xác, còn Everyone/Clear filters sẽ xoá bộ lọc. Card phải hiển thị assignee ngay dưới title cùng created/completed dates. Create issue phải hỗ trợ optional status, due date và project-member assignee; backend phải xác minh membership, self-assignment của Member và completed-lock.
 
@@ -644,3 +659,15 @@ which header/sidebar routes are displayed; `summary` and `board` are mandatory.
 The official schema contains 17 tables after adding `user_preferences` and
 `system_settings`, plus `projects.template_key` and `projects.enabled_features`.
 Migration 005 must be idempotent and safe for existing Spaces.
+
+---
+
+## 19. Account-level administration roles (approved 2026-08-24)
+
+- `users.account_role` is the source of truth for application-wide authority and is limited to `overall_admin`, `admin`, and `member`.
+- Exactly one `overall_admin` exists. It cannot demote itself and is the only role allowed to grant or revoke the `admin` account role.
+- `admin` accounts may create Member accounts and administer Spaces, but cannot grant, revoke, or alter application-wide Admin authority.
+- Account roles are independent from `project_members.project_role`. Global Admins receive effective Admin access to all Spaces; Member accounts see only assigned Spaces.
+- Revoking an account's global Admin role atomically downgrades its remaining Space-admin memberships to member so no Admin privilege survives while normal task editing remains available.
+- Account creation explicitly chooses `member` or, when performed by the Overall Admin, `admin`. Public self-registration remains prohibited.
+- Role mutation must be enforced by the backend; hiding frontend controls is insufficient.

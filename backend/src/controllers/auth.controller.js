@@ -2,6 +2,8 @@ const env = require('../config/env');
 const authService = require('../services/auth.service');
 const {
   requireEmail,
+  requireEnum,
+  requireInteger,
   requireObject,
   requireString,
 } = require('../utils/validation');
@@ -20,6 +22,8 @@ async function register(request, response) {
     name: requireString(body.name, 'name', { min: 1, max: 120 }),
     email: requireEmail(body.email),
     password: requireString(body.password, 'password', { min: 8, max: 72 }),
+    accountRole: requireEnum(body.accountRole ?? 'member', 'accountRole', ['admin', 'member']),
+    actorId: request.user.userId,
   });
   response.status(201).json({ user });
 }
@@ -55,7 +59,25 @@ async function listUsers(request, response) {
   response.json({ users: await authService.listUsers(search) });
 }
 
+async function changeRole(request, response) {
+  const body = requireObject(request.body);
+  response.json({ user: await authService.changeAccountRole(
+    request.user.userId,
+    requireInteger(request.params.userId, 'userId', { min: 1 }),
+    requireEnum(body.accountRole, 'accountRole', ['admin', 'member']),
+  ) });
+}
+
+async function deactivate(request, response) {
+  response.json({ user: await authService.deactivateAccount(
+    request.user.userId,
+    requireInteger(request.params.userId, 'userId', { min: 1 }),
+  ) });
+}
+
 module.exports = {
+  changeRole,
+  deactivate,
   login,
   logout,
   listUsers,

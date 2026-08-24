@@ -32,7 +32,7 @@ test('authentication API uses bcrypt, JWT, and an HttpOnly token cookie', { skip
     name: 'Public user', email: 'public@example.com', password: 'correct-horse-battery-staple',
   });
   assert.equal(publicRegister.status, 401);
-  const adminId = (await pool.query("INSERT INTO users (name,email,password_hash) VALUES ('Admin','admin@auth.test','unused') RETURNING id")).rows[0].id;
+  const adminId = (await pool.query("INSERT INTO users (name,email,password_hash,account_role) VALUES ('Admin','admin@auth.test','unused','admin') RETURNING id")).rows[0].id;
   const projectId = (await pool.query("INSERT INTO projects (key,name,created_by) VALUES ('AUTH','Auth', $1) RETURNING id", [adminId])).rows[0].id;
   await pool.query("INSERT INTO project_members (project_id,user_id,project_role) VALUES ($1,$2,'admin')", [projectId, adminId]);
   const adminCookie = `token=${jwt.sign({ sub: String(adminId) }, env.jwtSecret, { algorithm: 'HS256', expiresIn: '1h' })}`;

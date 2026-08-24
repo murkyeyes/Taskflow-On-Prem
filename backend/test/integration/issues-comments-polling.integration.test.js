@@ -21,6 +21,7 @@ test('issues, history, comments, and polling satisfy the Phase 5 contract', { sk
     );
     users[name] = result.rows[0].id;
   }
+  await pool.query("UPDATE users SET account_role = 'admin' WHERE id = $1", [users.admin]);
   const bootstrapId = (await pool.query("INSERT INTO projects (key,name,created_by) VALUES ('BOOT','Bootstrap Space',$1) RETURNING id", [users.admin])).rows[0].id;
   await pool.query("INSERT INTO project_members (project_id,user_id,project_role) VALUES ($1,$2,'admin')", [bootstrapId, users.admin]);
 

@@ -266,3 +266,31 @@ assets and protected app image; deploy through Caddy; verify personal preference
 password APIs, Admin-only settings denial, template transaction defaults, per-Space
 feature persistence, health, and browser route protection. Restore the pre-migration
 dump and previous images/assets together if rollback is required.
+
+## 17. Account-role migration and rollback (approved 2026-08-24)
+
+Apply `backend/src/db/migrations/006-account-roles.sql` after migration 005. The
+migration adds and backfills `users.account_role`, creates the single-Overall-Admin
+partial unique index, and is idempotent. Back up PostgreSQL before applying it.
+Rollback requires restoring that backup because removing account roles would restore
+the obsolete Space-membership-derived authority model.
+
+## 18. Member Space-edit migration and rollback (approved 2026-08-24)
+
+Apply `backend/src/db/migrations/007-member-space-edit-access.sql` after migration
+006. It upgrades existing Viewer memberships owned by application Member accounts
+to editable Member memberships. It introduces no table, dependency, container,
+volume, or port. Back up PostgreSQL before applying it. Rollback requires restoring
+the backup if the former viewer-only grants must be recovered exactly.
+
+## 19. Account deactivation migration and rollback (approved 2026-08-24)
+
+Apply `backend/src/db/migrations/008-account-deactivation.sql` after migration 007.
+It adds nullable `users.deactivated_at` and `users.deactivated_by`, the self-referencing
+foreign key used for administrator attribution, and an active-account lookup index.
+No table, dependency, service, volume, or host port is added. Take a `pg_dump -Fc`
+backup before the migration, then deploy backend and frontend together. Verify that
+deactivated accounts cannot log in or reuse an existing token, disappear from active
+account/assignee searches, lose current Space memberships, and retain all historical
+activity attribution. Rollback requires restoring the pre-migration backup together
+with the prior application image.

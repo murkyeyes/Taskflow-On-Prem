@@ -9,3 +9,5 @@ export const register = (data) => apiRequest('/auth/register', {
   method: 'POST', body: jsonBody(data),
 });
 export const listUsers = (search = '') => apiRequest(`/auth/users${search ? `?${new URLSearchParams({ search })}` : ''}`);
+export const updateAccountRole = (userId, accountRole) => apiRequest(`/auth/users/${userId}/role`, { method: 'PATCH', body: jsonBody({ accountRole }) });
+export const deactivateAccount = (userId) => apiRequest(`/auth/users/${userId}`, { method: 'DELETE' });

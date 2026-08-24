@@ -27,9 +27,7 @@ async function findRoleByIssueKey(issueKey, userId, client = pool) {
 async function findEffectiveRoleByProjectId(projectId, userId, client = pool) {
   const result = await client.query(
     `WITH account_access AS (
-       SELECT EXISTS (
-         SELECT 1 FROM project_members WHERE user_id = $2 AND project_role = 'admin'
-       ) AS is_admin
+       SELECT account_role IN ('overall_admin','admin') AS is_admin FROM users WHERE id = $2 AND deactivated_at IS NULL
      )
      SELECT project.id AS project_id,
             CASE WHEN account_access.is_admin THEN 'admin' ELSE member.project_role END AS project_role
@@ -48,9 +46,7 @@ async function findEffectiveRoleByProjectId(projectId, userId, client = pool) {
 async function findEffectiveRoleByIssueKey(issueKey, userId, client = pool) {
   const result = await client.query(
     `WITH account_access AS (
-       SELECT EXISTS (
-         SELECT 1 FROM project_members WHERE user_id = $2 AND project_role = 'admin'
-       ) AS is_admin
+       SELECT account_role IN ('overall_admin','admin') AS is_admin FROM users WHERE id = $2 AND deactivated_at IS NULL
      )
      SELECT issue.project_id,
             CASE WHEN account_access.is_admin THEN 'admin' ELSE member.project_role END AS project_role
@@ -77,6 +73,7 @@ async function list(projectId, client = pool) {
        FROM project_members AS member
        JOIN users AS app_user ON app_user.id = member.user_id
       WHERE member.project_id = $1
+        AND app_user.deactivated_at IS NULL
       ORDER BY app_user.name, member.user_id`,
     [projectId],
   );
@@ -89,6 +86,7 @@ async function searchAssignees(projectId, search = '', client = pool) {
        FROM project_members AS member
        JOIN users AS app_user ON app_user.id = member.user_id
       WHERE member.project_id = $1
+        AND app_user.deactivated_at IS NULL
         AND ($2 = '' OR app_user.name ILIKE '%' || $2 || '%' OR app_user.email ILIKE '%' || $2 || '%')
       ORDER BY app_user.name, app_user.email
       LIMIT 30`,
@@ -99,12 +97,14 @@ async function searchAssignees(projectId, search = '', client = pool) {
 
 async function hasAnyAdminMembership(userId, client = pool) {
   const result = await client.query(
-    `SELECT EXISTS (
-       SELECT 1 FROM project_members WHERE user_id = $1 AND project_role = 'admin'
-     ) AS is_admin`,
+    `SELECT EXISTS (SELECT 1 FROM users WHERE id = $1 AND deactivated_at IS NULL AND account_role IN ('overall_admin','admin')) AS is_admin`,
     [userId],
   );
   return result.rows[0].is_admin;
+}
+
+async function hasOverallAdminRole(userId, client = pool) {
+  return (await client.query(`SELECT EXISTS (SELECT 1 FROM users WHERE id = $1 AND deactivated_at IS NULL AND account_role = 'overall_admin') AS allowed`, [userId])).rows[0].allowed;
 }
 
 async function add(projectId, userId, projectRole, client = pool) {
@@ -147,6 +147,7 @@ module.exports = {
   findRoleByIssueKey,
   findRoleByProjectId,
   hasAnyAdminMembership,
+  hasOverallAdminRole,
   list,
   remove,
   updateRole,

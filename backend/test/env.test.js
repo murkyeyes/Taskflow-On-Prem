@@ -49,7 +49,7 @@ test('loads and normalizes valid environment values', () => {
 
 test('rejects a missing database URL', () => {
   assert.throws(
-    () => loadEnv({ JWT_SECRET: '01234567890123456789012345678901' }),
+    () => loadEnv({ DATABASE_URL: ' ', JWT_SECRET: '01234567890123456789012345678901' }),
     /Missing required environment variable: DATABASE_URL/,
   );
 });

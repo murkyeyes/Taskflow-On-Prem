@@ -3,8 +3,15 @@ CREATE TABLE users (
     name          VARCHAR(120)  NOT NULL,
     email         VARCHAR(255)  NOT NULL UNIQUE,
     password_hash VARCHAR(255)  NOT NULL,
-    created_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
+    account_role  VARCHAR(20)   NOT NULL DEFAULT 'member'
+                  CHECK (account_role IN ('overall_admin', 'admin', 'member')),
+    created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    deactivated_at TIMESTAMPTZ,
+    deactivated_by INTEGER REFERENCES users(id)
 );
+
+CREATE UNIQUE INDEX idx_users_single_overall_admin ON users ((account_role)) WHERE account_role = 'overall_admin';
+CREATE INDEX idx_users_active_directory ON users (name, email) WHERE deactivated_at IS NULL;
 
 CREATE TABLE user_preferences (
     user_id                INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

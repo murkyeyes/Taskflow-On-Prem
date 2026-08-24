@@ -601,7 +601,7 @@ The React project adds `components/layout/WorkspaceShell.jsx`, `Sidebar.jsx`, `P
 
 ## 6. Board controls and Admin Account Provisioning Expansion (2026-08-22)
 
-This approved expansion keeps the same 14-table schema and technology stack. Public self-registration is removed: `POST /api/auth/register` requires an authenticated user who is an `admin` member of at least one project. Initial deployment creates the bootstrap administrator via the approved seed/deployment process. The dedicated `/teams` application-administration page is the only UI that exposes account creation and cross-Space access management. Account provisioning is independent from Space membership: after creation, an application Admin explicitly grants existing accounts viewer access to selected Spaces or revokes non-admin assignments. Project Settings contains only Space workflow configuration. For its own `projectId`, an Admin can create, rename, recolor, and delete issue types; create, rename, reorder, select the single default, mark final/completed, and delete workflow statuses. Deletion remains blocked with `409` when referenced by an issue.
+This approved expansion keeps the same 14-table schema and technology stack. Public self-registration is removed: `POST /api/auth/register` requires an authenticated user who is an `admin` member of at least one project. Initial deployment creates the bootstrap administrator via the approved seed/deployment process. The dedicated `/teams` application-administration page is the only UI that exposes account creation and cross-Space access management. Account provisioning is independent from Space membership: after creation, an application Admin explicitly grants existing accounts editable member access to selected Spaces or revokes non-admin assignments. Project Settings contains only Space workflow configuration. For its own `projectId`, an Admin can create, rename, recolor, and delete issue types; create, rename, reorder, select the single default, mark final/completed, and delete workflow statuses. Deletion remains blocked with `409` when referenced by an issue.
 
 `GET /api/projects/:projectId/assignees?search=` returns project members whose account name or email matches case-insensitively. It is used by the board issue composer and assignee filter; an issue may only be assigned to a member of its project. `GET /api/projects/:projectId/issues?search=` matches issue key/title case-insensitively. `/teams` uses the existing Admin-only `GET /api/auth/users?search=`, membership list/create/delete endpoints, and never exposes administrator-membership revocation.
 
@@ -613,7 +613,7 @@ The product term is **Space**. To preserve database and API compatibility, a Spa
 
 Only an authenticated account that has `project_role = 'admin'` in at least one Space may call `POST /api/projects`. The request may include a unique `viewerIds` array of existing user IDs. Space creation, creator-admin membership, viewer memberships, issue-key sequence, default issue types, and default workflow statuses are committed in one transaction. Any invalid account ID rolls back the entire operation.
 
-New assignments are always `viewer`. `POST` and `PATCH /api/projects/:projectId/members...` reject attempts to grant `member` or `admin`; legacy rows remain readable for compatibility. `GET /api/auth/users?search=` is admin-only and returns public account fields for the Space creator and dedicated `/teams` account/access manager.
+New assignments are always `member`. `POST` and `PATCH /api/projects/:projectId/members...` reject attempts to grant `viewer` or `admin`; legacy explicit viewer rows remain readable for compatibility. The backward-compatible `viewerIds` field on Space creation now creates member memberships. `GET /api/auth/users?search=` is admin-only and returns public account fields for the Space creator and dedicated `/teams` account/access manager.
 
 Space isolation is enforced through the existing RBAC middleware. A non-admin viewer lists only assigned Spaces, and direct requests to any unassigned Space, issue, comment, workspace document, form, sprint, or development resource fail with `403`. Viewers cannot mutate Space data. Section 8 expands application Admin visibility without changing the schema.
 
@@ -685,6 +685,62 @@ non-Admins. Space creation starts with a template gallery and then permits the A
 to enable or disable optional services. ProjectHeader and Sidebar render only the
 features stored for that Space; disabled service URLs remain protected by the same
 Space RBAC and the UI provides no navigation to them.
+
+## 11. Account-level roles and Overall Admin (approved 2026-08-24)
+
+`users.account_role VARCHAR(20) NOT NULL DEFAULT 'member'` is constrained to
+`overall_admin`, `admin`, and `member`. A partial unique index permits exactly one
+`overall_admin`. Migration 006 backfills accounts that previously derived application
+Admin authority from a Space-admin membership, then selects the bootstrap account
+(`admin@taskflow.local`, otherwise the lowest existing Admin id) as Overall Admin.
+
+Application authorization is resolved from `users.account_role`; Space authorization
+continues to use `project_members.project_role` for non-admin accounts. Both
+`overall_admin` and `admin` receive effective `admin` access across every Space.
+
+| Method | Endpoint | Authorization | Contract |
+|---|---|---|---|
+| POST | `/auth/register` | Admin/Overall Admin | Admin creates `member`; Overall Admin creates `member` or `admin` |
+| GET | `/auth/users` | Admin/Overall Admin | List public account data including `accountRole` |
+| PATCH | `/auth/users/:userId/role` | Overall Admin | Change another account between `admin` and `member`; self-demotion and Overall-Admin mutation are rejected |
+
+Role change sequence: authenticate, verify the actor is `overall_admin`, validate target
+and requested role, lock both user rows, reject self/Overall-Admin mutation, update the
+target, update its account role, downgrade any target `project_members.admin` rows to
+`member` when revoking Admin, commit, and return the public account. Promotion does
+not create Space memberships because global Admin access is effective across all Spaces.
+
+## 12. Member Space editing correction (approved 2026-08-24)
+
+Application `member` accounts receive editable `project_members.member` access when
+an Admin assigns them to a Space. Migration 007 upgrades existing `viewer` grants
+belonging to application Member accounts to `member`. Explicit legacy Viewer rows
+remain supported as read-only data, but Teams and Space creation no longer create
+new Viewer grants. Members may edit non-final assigned tasks subject to self-assignment
+and completed-task locking; they still cannot administer Space configuration.
+
+## 13. Account deactivation and member issue-composer reliability (approved 2026-08-24)
+
+Account deletion is implemented as deactivation so historical attribution is never
+lost. `users` gains nullable `deactivated_at TIMESTAMPTZ` and `deactivated_by INTEGER
+REFERENCES users(id)`. `DELETE /api/auth/users/:userId` runs in one transaction: lock
+actor and target, reject self/Overall-Admin deactivation, allow Admin to deactivate a
+Member and Overall Admin to deactivate a Member or Admin, stamp the target, delete its
+current `project_members` access rows, and return the deactivated public account.
+There is no SQL `DELETE` against `users`.
+
+Login and every `requireAuth` request reject a deactivated account. Active account,
+Space-member, and assignee searches exclude it. Existing issue reporter/assignee,
+status-history, comment, attachment, document, form, sprint, development-link, and
+Space-creator foreign keys continue to reference the retained user row, preserving
+the displayed actor name and complete audit history.
+
+The Teams UI exposes the destructive control only when the signed-in actor is allowed
+to deactivate the selected account and explains that history is retained. Account
+creation captures the form element before awaiting the API so the successful reset
+cannot dereference React's cleared event target. Board member-assignee options have a
+stable memoized identity so polling cannot reinitialize an open issue composer or
+erase member-entered title, description, dates, priority, or assignee input.
 
 ## 9. Issue completion dates, immutable completion, and self-assignment (2026-08-22)
 

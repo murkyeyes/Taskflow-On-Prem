@@ -7,6 +7,7 @@ test('settings, templates, feature persistence, and Admin RBAC work against Post
   await pool.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
   const passwordHash = await bcrypt.hash('OriginalPass123', 4); const users = {};
   for (const name of ['admin','member']) users[name]=(await pool.query('INSERT INTO users(name,email,password_hash) VALUES($1,$2,$3) RETURNING id',[name,`${name}@settings.test`,passwordHash])).rows[0].id;
+  await pool.query("UPDATE users SET account_role = 'admin' WHERE id = $1", [users.admin]);
   const bootstrap=(await pool.query("INSERT INTO projects(key,name,created_by) VALUES('BOOT','Bootstrap',$1) RETURNING id",[users.admin])).rows[0].id;
   await pool.query("INSERT INTO project_members(project_id,user_id,project_role) VALUES($1,$2,'admin')",[bootstrap,users.admin]);
   const token=(name)=>jwt.sign({sub:String(users[name])},env.jwtSecret,{algorithm:'HS256',expiresIn:'1h'});

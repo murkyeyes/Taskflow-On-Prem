@@ -23,6 +23,7 @@ test('RBAC resolves project roles from projectId and issueKey', { skip: !integra
     );
     users[role] = result.rows[0].id;
   }
+  await pool.query("UPDATE users SET account_role = 'admin' WHERE id = $1", [users.admin]);
 
   const project = await pool.query(
     "INSERT INTO projects (key, name, created_by) VALUES ('RBAC', 'RBAC Project', $1) RETURNING id",

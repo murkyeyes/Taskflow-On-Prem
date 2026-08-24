@@ -3,12 +3,7 @@ const pool = require('../config/db');
 async function listForUser(userId, client = pool) {
   const result = await client.query(
     `WITH account_access AS (
-       SELECT EXISTS (
-         SELECT 1
-           FROM project_members
-          WHERE user_id = $1
-            AND project_role = 'admin'
-       ) AS is_admin
+       SELECT account_role IN ('overall_admin','admin') AS is_admin FROM users WHERE id = $1
      )
      SELECT project.id,
             project.key,

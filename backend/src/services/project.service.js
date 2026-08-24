@@ -28,7 +28,7 @@ async function createProject(data, userId, defaults = {}) {
       if (existingViewerIds.length !== viewerIds.length) {
         throw new HttpError(400, 'VIEWER_ACCOUNT_NOT_FOUND', 'One or more selected viewer accounts do not exist');
       }
-      for (const viewerId of viewerIds) await memberRepository.add(project.id, viewerId, 'viewer', client);
+      for (const viewerId of viewerIds) await memberRepository.add(project.id, viewerId, 'member', client);
       await issueSequenceRepository.initialize(client, project.id);
 
       for (const issueType of issueTypes) {

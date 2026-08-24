@@ -730,6 +730,52 @@ Chỉ thực hiện nếu khách cần truy cập ngoài LAN.
 
 ---
 
+## Phase 23 — Account roles and Overall Admin authority
+
+> User-approved account privilege expansion dated 2026-08-24.
+
+### 23.1 Specification and persistence
+
+- [x] Synchronize Rules and System Design with Overall Admin/Admin/Member account roles
+- [x] Add idempotent migration 006 and update the fresh schema/seed
+
+### 23.2 Backend authorization
+
+- [x] Return account roles in authenticated/public account responses
+- [x] Restrict Admin role grants/revocations to the Overall Admin
+- [x] Resolve application-wide Space authority from account roles instead of Space membership
+- [x] Add integration coverage for creation, promotion, demotion, self-protection, and ordinary-Admin denial
+
+### 23.3 Frontend and verification
+
+- [x] Add account-role selection and privilege management to Teams
+- [x] Build, deploy, and verify role-aware controls and API protection
+
+---
+
+## Phase 24 — Member Space editing permission correction
+
+> User-approved correction dated 2026-08-24.
+
+- [x] Synchronize Rules and System Design so assigned Member accounts can edit Space tasks
+- [x] Change Teams and Space creation grants from Viewer to Member
+- [x] Add and validate migration 007 for existing Member-account Viewer grants
+- [x] Verify Member task editing, legacy Viewer denial, Admin controls, build, and deployment
+
+---
+
+## Phase 25 — Account deactivation and member task-creation reliability
+
+> User-approved expansion and corrections dated 2026-08-24.
+
+- [x] Synchronize Rules and System Design for soft account deletion and retained activity
+- [x] Add migration 008 and backend account-deactivation authorization
+- [x] Fix the successful account-creation form reset error
+- [x] Prevent polling from clearing the Member issue composer
+- [x] Verify retained activity, revoked authentication/access, Member issue creation, build, and deployment
+
+---
+
 ## Completion rule
 
 

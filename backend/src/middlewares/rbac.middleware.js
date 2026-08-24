@@ -38,7 +38,7 @@ function requireRole(allowedRoles) {
 async function requireAccountAdmin(request, response, next) {
   try {
     if (!await memberRepository.hasAnyAdminMembership(request.user.userId)) {
-      throw new HttpError(403, 'FORBIDDEN', 'Only project administrators can create accounts');
+      throw new HttpError(403, 'FORBIDDEN', 'Only application administrators can perform this action');
     }
     next();
   } catch (error) {
@@ -46,7 +46,15 @@ async function requireAccountAdmin(request, response, next) {
   }
 }
 
+async function requireOverallAdmin(request, response, next) {
+  try {
+    if (!await memberRepository.hasOverallAdminRole(request.user.userId)) throw new HttpError(403, 'OVERALL_ADMIN_REQUIRED', 'Only the Overall Admin can perform this action');
+    next();
+  } catch (error) { next(error); }
+}
+
 module.exports = {
   requireRole,
   requireAccountAdmin,
+  requireOverallAdmin,
 };

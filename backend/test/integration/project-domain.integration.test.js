@@ -20,6 +20,7 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
     );
     users[name] = result.rows[0].id;
   }
+  await pool.query("UPDATE users SET account_role = 'admin' WHERE id = $1", [users.admin]);
   const bootstrapId = (await pool.query("INSERT INTO projects (key,name,created_by) VALUES ('BOOT','Bootstrap Space',$1) RETURNING id", [users.admin])).rows[0].id;
   await pool.query("INSERT INTO project_members (project_id,user_id,project_role) VALUES ($1,$2,'admin')", [bootstrapId, users.admin]);
 
@@ -62,7 +63,7 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
        (SELECT count(*)::int FROM workflow_statuses WHERE project_id = $1) AS status_count,
        (SELECT count(*)::int FROM workflow_statuses WHERE project_id = $1 AND is_default) AS default_count,
        (SELECT count(*)::int FROM workflow_statuses WHERE project_id = $1 AND is_final) AS final_count,
-       (SELECT count(*)::int FROM project_members WHERE project_id = $1 AND project_role = 'viewer') AS viewer_count`,
+       (SELECT count(*)::int FROM project_members WHERE project_id = $1 AND project_role = 'member') AS member_count`,
     [projectId, users.admin],
   );
   assert.deepEqual(invariants.rows[0], {
@@ -72,8 +73,9 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
     status_count: 4,
     default_count: 1,
     final_count: 1,
-    viewer_count: 2,
+    member_count: 2,
   });
+  await pool.query("UPDATE project_members SET project_role = 'viewer' WHERE project_id = $1 AND user_id = $2", [projectId, users.viewer]);
   assert.equal((await request('admin', '/projects', { method: 'POST', body: { key: 'BADVIEW', name: 'Invalid viewer Space', viewerIds: [999999] } })).status, 400);
   assert.equal((await pool.query("SELECT count(*)::int AS count FROM projects WHERE key='BADVIEW'")).rows[0].count, 0);
 
@@ -102,7 +104,7 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
   assert.equal((await request('outsider', '/projects', { method: 'POST', body: { key: 'NOPE', name: 'Forbidden' } })).status, 403);
   assert.equal((await request('outsider', '/auth/users')).status, 403);
   assert.equal((await request('admin', '/auth/users?search=view')).status, 200);
-  assert.equal((await request('admin', `/projects/${projectId}/members`, { method: 'POST', body: { userId: users.outsider, projectRole: 'member' } })).status, 400);
+  assert.equal((await request('admin', `/projects/${projectId}/members`, { method: 'POST', body: { userId: users.outsider, projectRole: 'viewer' } })).status, 400);
   assert.equal((await request('member', `/projects/${projectId}/members`)).status, 200);
   assert.equal((await request('viewer', `/projects/${projectId}/members`)).status, 403);
   assert.equal((await request('member', `/projects/${projectId}/members`, {
@@ -110,7 +112,7 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
   })).status, 403);
   assert.equal((await request('admin', `/projects/${projectId}/members/${users.removable}`, {
     method: 'PATCH', body: { projectRole: 'member' },
-  })).status, 400);
+  })).status, 200);
   assert.equal((await request('admin', `/projects/${projectId}/members/${users.removable}`, {
     method: 'DELETE',
   })).status, 204);
