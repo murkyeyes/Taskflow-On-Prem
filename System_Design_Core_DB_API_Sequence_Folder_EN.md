@@ -742,6 +742,17 @@ cannot dereference React's cleared event target. Board member-assignee options h
 stable memoized identity so polling cannot reinitialize an open issue composer or
 erase member-entered title, description, dates, priority, or assignee input.
 
+## 14. Password-change UI reliability correction (approved 2026-08-24)
+
+Password changes continue to use `PATCH /api/settings/me/password`: authenticate,
+validate the current password against the stored bcrypt hash, hash the replacement,
+update `users.password_hash`, then return `204`. No schema or endpoint change is
+required. The General Settings client captures the form node before the asynchronous
+request and resets it only after `204`, so React event cleanup cannot turn a committed
+password change into a misleading UI error. Integration verification must prove that
+an incorrect current password preserves the old credential and that a successful
+change rejects the old credential while accepting the new one.
+
 ## 9. Issue completion dates, immutable completion, and self-assignment (2026-08-22)
 
 `issues.completed_at TIMESTAMPTZ NULL` records the current completion timestamp. A transition into a workflow status with `is_final = true` sets it in the same transaction as the status update/history insert. An Admin transition back to a non-final status clears it; re-completion sets a new timestamp. Migration `003-issue-completion.sql` adds the column and project/date indexes to existing installations.

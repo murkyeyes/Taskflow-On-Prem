@@ -74,8 +74,8 @@ export default function ProjectSettingsPage() {
   useEffect(() => { load(); }, [load]);
 
   async function submit(event, action) {
-    event.preventDefault(); setError(''); setMessage('');
-    try { await action(new FormData(event.currentTarget)); event.currentTarget.reset(); await load(); setMessage('Saved.'); }
+    event.preventDefault(); const formElement = event.currentTarget; setError(''); setMessage('');
+    try { await action(new FormData(formElement)); formElement.reset(); await load(); setMessage('Saved.'); }
     catch (requestError) { setError(requestError.message); }
   }
   async function mutate(action, successMessage = 'Saved.') {

@@ -776,6 +776,16 @@ Chỉ thực hiện nếu khách cần truy cập ngoài LAN.
 
 ---
 
+## Phase 26 — Password-change success handling
+
+> User-approved reliability correction dated 2026-08-24.
+
+- [x] Document the committed-password consequence and stable async form-reset contract
+- [x] Fix password-change and related async settings forms to retain a stable form reference
+- [x] Verify wrong-current-password rejection, successful replacement, old/new login behavior, frontend build, and deployment
+
+---
+
 ## Completion rule
 
 

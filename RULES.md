@@ -671,3 +671,11 @@ Migration 005 must be idempotent and safe for existing Spaces.
 - Revoking an account's global Admin role atomically downgrades its remaining Space-admin memberships to member so no Admin privilege survives while normal task editing remains available.
 - Account creation explicitly chooses `member` or, when performed by the Overall Admin, `admin`. Public self-registration remains prohibited.
 - Role mutation must be enforced by the backend; hiding frontend controls is insufficient.
+
+---
+
+## 20. Password-change completion semantics (approved correction 2026-08-24)
+
+- `PATCH /api/settings/me/password` verifies the current password, stores the new bcrypt hash, and returns `204` only after the database update succeeds.
+- The frontend must capture a stable reference to the submitted form before awaiting the API. It may clear password inputs only after the `204` response and must then show success, not a client-side reset error.
+- A client rendering/reset failure after an API success does not roll back the password update. Error messaging must never imply that the old password remains valid after the server has accepted the change.

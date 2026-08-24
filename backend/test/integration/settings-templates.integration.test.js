@@ -32,6 +32,8 @@ test('settings, templates, feature persistence, and Admin RBAC work against Post
   assert.deepEqual(seeded.rows[0],{types:['Bug','Epic','Story','Task'],statuses:4,defaults:1,finals:1});
   assert.equal((await request('member',`/projects/${project.id}`,{method:'PATCH',body:{enabledFeatures:['docs']}})).status,403);
 
+  const rejected=await request('member','/settings/me/password',{method:'PATCH',body:{currentPassword:'WrongCurrentPass123',newPassword:'ChangedPass123'}}); assert.equal(rejected.status,400);
+  const unchangedLogin=await fetch(`${base}/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'member@settings.test',password:'OriginalPass123'})}); assert.equal(unchangedLogin.status,200);
   const changed=await request('member','/settings/me/password',{method:'PATCH',body:{currentPassword:'OriginalPass123',newPassword:'ChangedPass123'}}); assert.equal(changed.status,204);
   const oldLogin=await fetch(`${base}/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'member@settings.test',password:'OriginalPass123'})}); assert.equal(oldLogin.status,401);
   const newLogin=await fetch(`${base}/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'member@settings.test',password:'ChangedPass123'})}); assert.equal(newLogin.status,200);
