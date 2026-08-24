@@ -753,6 +753,20 @@ password change into a misleading UI error. Integration verification must prove 
 an incorrect current password preserves the old credential and that a successful
 change rejects the old credential while accepting the new one.
 
+## 15. Atlassian-style Space directory (approved 2026-08-24)
+
+The authenticated `/` route renders a dense Jira-style Space directory instead of
+the earlier card grid. It continues to consume `GET /api/projects` as its only Space
+data source and `GET /api/settings/templates` for the read-only template preview rail.
+Search, template/category filtering, name sorting, favorites, template-panel visibility,
+and responsive presentation are client-side concerns; they add no schema or API.
+
+Each table row links to `/projects/:projectId/summary`. Its action menu links to the
+same Space and exposes `/projects/:projectId/settings` only for effective Admin rows.
+The Create Space action and template entry links remain Admin-only and route through
+the canonical `/spaces/new` creation transaction. Sidebar visibility and Admin/member
+Space scoping remain governed by the existing `GET /api/projects` authorization.
+
 ## 9. Issue completion dates, immutable completion, and self-assignment (2026-08-22)
 
 `issues.completed_at TIMESTAMPTZ NULL` records the current completion timestamp. A transition into a workflow status with `is_final = true` sets it in the same transaction as the status update/history insert. An Admin transition back to a non-final status clears it; re-completion sets a new timestamp. Migration `003-issue-completion.sql` adds the column and project/date indexes to existing installations.

@@ -786,6 +786,16 @@ Chỉ thực hiện nếu khách cần truy cập ngoài LAN.
 
 ---
 
+## Phase 27 — Atlassian-style Space directory
+
+> User-approved UI refinement dated 2026-08-24.
+
+- [x] Synchronize Rules and System Design for the Space directory without changing schema or RBAC
+- [x] Replace the home card gallery with searchable, filterable, sortable Space table and template rail
+- [x] Verify Admin/member visibility, links and controls, responsive build, live deployment, and browser rendering
+
+---
+
 ## Completion rule
 
 

@@ -65,6 +65,11 @@ const documentTranslations = {
     'Delete account': 'Xóa tài khoản', 'Deleting this account revokes login and Space access while retaining all historical activity.': 'Xóa tài khoản sẽ thu hồi đăng nhập và quyền truy cập Không gian nhưng vẫn giữ toàn bộ lịch sử hoạt động.',
     'Log in to continue': 'Đăng nhập để tiếp tục', 'Use your Taskflow workspace account': 'Sử dụng tài khoản Taskflow của bạn', 'Email': 'Email', 'Password': 'Mật khẩu', 'Continue': 'Tiếp tục',
     'Need an account? Ask a Space administrator to create one for you.': 'Cần tài khoản? Hãy yêu cầu Quản trị viên Không gian tạo tài khoản cho bạn.',
+    'Search': 'Tìm kiếm', 'Search spaces': 'Tìm Không gian', 'Filter by template': 'Lọc theo mẫu', 'Templates': 'Mẫu',
+    'Preview a template for your next Space': 'Xem trước mẫu cho Không gian tiếp theo', 'More templates': 'Thêm mẫu',
+    'Name': 'Tên', 'Key': 'Khóa', 'Access': 'Quyền truy cập', 'Open Space': 'Mở Không gian', 'No description provided.': 'Chưa có mô tả.',
+    'No matching Spaces': 'Không có Không gian phù hợp', 'No Spaces assigned': 'Chưa được giao Không gian',
+    'Try another search or template.': 'Hãy thử tìm kiếm hoặc mẫu khác.', 'Ask an Admin to assign you to a Space.': 'Hãy yêu cầu Quản trị viên giao Không gian cho bạn.',
   },
 };
 const reverseDocumentTranslations = Object.fromEntries(Object.entries(documentTranslations.vi).map(([english, vietnamese]) => [vietnamese, english]));

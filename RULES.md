@@ -679,3 +679,13 @@ Migration 005 must be idempotent and safe for existing Spaces.
 - `PATCH /api/settings/me/password` verifies the current password, stores the new bcrypt hash, and returns `204` only after the database update succeeds.
 - The frontend must capture a stable reference to the submitted form before awaiting the API. It may clear password inputs only after the `204` response and must then show success, not a client-side reset error.
 - A client rendering/reset failure after an API success does not roll back the password update. Error messaging must never imply that the old password remains valid after the server has accepted the change.
+
+---
+
+## 21. Atlassian-style Space directory (approved 2026-08-24)
+
+- The authenticated `/` home remains the canonical Space selector and continues to use `GET /api/projects`, so Admins see every Space and Members see only assigned Spaces.
+- Replace the card gallery with an Atlassian-style directory containing a compact heading, Admin-only Create Space action, template-panel toggle, local Space search, template/category filter, sortable name column, and a Space table.
+- Every displayed Space row must open the correct existing Space. Row actions may expose Space settings only when the caller has effective Admin access.
+- The template preview rail uses the existing code-owned templates and links into the existing `/spaces/new` flow. It must not introduce external services, schema changes, or new dependencies.
+- The Jira-style shared sidebar and all existing RBAC rules remain unchanged.
