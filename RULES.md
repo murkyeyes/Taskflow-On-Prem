@@ -314,14 +314,14 @@ trong cùng transaction với status history.
 
 Author/admin constraints phải được enforce ở backend.
 
-Comments API và dữ liệu cũ được giữ để tương thích, nhưng Issue Detail không còn hiển thị comment composer. Khu vực này được thay bằng **Report files**:
+Comments API và dữ liệu cũ được giữ để tương thích, nhưng Issue Detail không còn hiển thị comment composer. Khu vực này được thay bằng **Report links**:
 
 - `GET /issues/:issueKey/attachments`
-- `POST /issues/:issueKey/attachments` nhận raw binary body, `X-File-Name`, và `Content-Type`
-- `GET /attachments/:id/download`
+- `POST /issues/:issueKey/attachments` nhận JSON `{ url, title? }`
+- `GET /attachments/:id/download` chỉ giữ cho binary attachment cũ
 - `DELETE /attachments/:id`
 
-Chỉ chấp nhận PDF, Word (`.doc`, `.docx`) và Excel (`.xls`, `.xlsx`), tối đa 10 MiB/file. File bytes và metadata phải nằm trong PostgreSQL để backup hiện tại bao phủ attachments. Viewer chỉ được list/download. Member được upload và chỉ xoá file do chính mình upload khi issue chưa final. Khi issue ở final status, mọi upload/delete của non-admin phải trả `403 COMPLETED_ISSUE_LOCKED`; Admin vẫn được upload/delete. Backend phải kiểm tra extension, MIME type và file signature, không tin client filename/MIME đơn thuần.
+Link mới phải là HTTPS tuyệt đối, tối đa 2048 ký tự. Backend chỉ lưu URL và metadata, tuyệt đối không tải file từ xa. Viewer được list/mở link. Member được thêm link và chỉ xoá link do chính mình thêm khi issue chưa final. Khi issue ở final status, mọi add/delete của non-admin phải trả `403 COMPLETED_ISSUE_LOCKED`; Admin vẫn được add/delete. Binary attachment cũ được giữ để tương thích, không tự động xoá.
 
 ### 7.8 Polling
 
@@ -689,3 +689,97 @@ Migration 005 must be idempotent and safe for existing Spaces.
 - Every displayed Space row must open the correct existing Space. Row actions may expose Space settings only when the caller has effective Admin access.
 - The template preview rail uses the existing code-owned templates and links into the existing `/spaces/new` flow. It must not introduce external services, schema changes, or new dependencies.
 - The Jira-style shared sidebar and all existing RBAC rules remain unchanged.
+
+---
+
+## 22. Monthly Backlog archive (approved 2026-08-25)
+
+- Each Space Backlog provides a month archive derived from the immutable
+  `issues.created_at` timestamp. Grouping an issue into a month is a presentation
+  rule and must not rewrite its creation date, sprint, workflow status, or history.
+- `/projects/:projectId/backlog?month=YYYY-MM` opens the selected month's Backlog.
+  With no month query, the newest available month is selected; `month=all` provides
+  the complete Backlog.
+- Month counts and month contents must be computed from the complete paginated
+  issue result, not only the first API page. This prevents older work from silently
+  disappearing after a Space exceeds 100 issues.
+- Within a selected month, existing sprint groups, planning controls, completed-task
+  locks, and Space RBAC remain unchanged.
+- The month archive is available to every account that can access the Space. It does
+  not add a new permission, database table, runtime dependency, or external service.
+
+---
+
+## 23. External report links (approved 2026-08-25)
+
+This section supersedes the binary-upload requirements in section 7.7 for all new
+reports. Existing binary attachments remain readable and removable for backward
+compatibility; the application must not delete them automatically.
+
+- New issue reports are HTTPS links to online Excel, Word, PDF, or other document
+  viewers. PostgreSQL stores only the URL, display title, detected provider/type,
+  uploader, and timestamps—never downloaded remote document bytes.
+- `POST /issues/:issueKey/attachments` accepts JSON `{ url, title? }`. The backend
+  validates an absolute HTTPS URL, limits it to 2048 characters, derives safe display
+  metadata, and never fetches the remote URL (preventing SSRF and database growth).
+- Report links render as document preview cards. Clicking a card opens the supplied
+  URL in a new browser tab with opener isolation. The UI does not claim the remote
+  document is available or safe beyond validating its URL scheme.
+- Viewer may list/open links. Member may add links and remove only links they added.
+  On final-status issues, non-Admin add/remove requests return
+  `403 COMPLETED_ISSUE_LOCKED`; Admin retains override authority.
+- Migration 009 makes legacy binary columns nullable and adds `external_url` and
+  `provider` without adding a table. Each row must contain exactly one source:
+  either a legacy binary or an external URL.
+
+---
+
+## 24. Monthly Backlog report index (approved 2026-08-25)
+
+This section supersedes section 22's Backlog rendering and routing behavior.
+
+- `/projects/:projectId/backlog` is a read-only month index derived from the
+  complete paginated issue result and each issue's immutable `created_at` value.
+- The Backlog page keeps its monthly title but removes sprint creation, sprint
+  planning fields, individual issue rows, and sprint buckets. It displays one
+  compact entry per month with the localized month name and issue count.
+- A month entry links to `/projects/:projectId/board?month=YYYY-MM`. The Board
+  applies that creation-month scope before assignee, priority, status, and search
+  filters, then renders the full monthly report in the existing Kanban columns.
+- An absent or invalid `month` query preserves the normal all-issues Board. A
+  valid month is bookmarkable and displays an explicit monthly-report banner with
+  a link back to the month index.
+- Month navigation does not change issue dates, workflow state, permissions,
+  completed-task locking, persistence, API contracts, or runtime dependencies.
+
+---
+
+## 25. Yearly report-calendar Backlog (approved 2026-08-25)
+
+This section supersedes section 24's month-only list while retaining the same
+read-only reporting and authorization boundaries.
+
+- `/projects/:projectId/backlog` provides a report-year selector and twelve
+  horizontally scrollable month tabs. Selecting a year or month redraws the table
+  without changing issue data.
+- The table contains an expandable row for the current Space, followed by one row
+  per issue created in the selected month. Fixed columns show the report task,
+  assignee, and workflow status; the scrollable calendar contains every day in the
+  selected month.
+- The expandable Space row is outside the horizontal calendar scroller and must
+  remain fixed across the visible table width. Horizontal scrolling synchronizes
+  the day header with issue rows only.
+- An issue's immutable `created_at` determines its year, month, and report-day cell.
+  That cell links to `/issues/:issueKey`, where authorized users can view the task's
+  online report links. No report link is fetched or embedded in the Backlog.
+- Year/month selection must be derived from the complete paginated issue result,
+  remain usable when a month has no reports, and be represented in the URL as
+  `?year=YYYY&month=M` for reload-safe reference.
+- The calendar is a responsive presentation layer only. It adds no persistence,
+  API, permission, workflow, or completed-task behavior.
+- Each day header is interactive. Selecting a day limits the report rows to issues
+  created on that local calendar day; selecting it again clears the day filter.
+- The Backlog also provides assignee and workflow-status selectors. Day, assignee,
+  and status filters compose together and are stored in the URL query so the
+  filtered report remains reload-safe. Filtering never changes task ownership or
+  workflow state.

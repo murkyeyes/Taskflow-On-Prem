@@ -1,42 +1,58 @@
 import { useState } from 'react';
 
-function readableSize(size) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+function documentKind(attachment) {
+  const value = `${attachment.file_name} ${attachment.external_url}`.toLowerCase();
+  if (/\.xlsx?\b|spreadsheets/.test(value)) return { className: 'excel', icon: 'X', label: 'Excel' };
+  if (/\.docx?\b|\/document\//.test(value)) return { className: 'word', icon: 'W', label: 'Word' };
+  if (/\.pdf\b/.test(value)) return { className: 'pdf', icon: 'PDF', label: 'PDF' };
+  return { className: 'online', icon: '↗', label: 'Online document' };
 }
 
-export default function ReportFiles({ attachments, canMutate, locked, onUpload, onDownload, onDelete }) {
-  const [uploading, setUploading] = useState(false);
+export default function ReportFiles({ attachments, canMutate, locked, onAddLink, onDownload, onDelete }) {
+  const [saving, setSaving] = useState(false);
 
   async function submit(event) {
     event.preventDefault();
-    const input = event.currentTarget.elements.reportFile;
-    if (!input.files?.[0]) return;
-    setUploading(true);
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setSaving(true);
     try {
-      if (await onUpload(input.files[0]) !== false) event.currentTarget.reset();
+      if (await onAddLink({ url: data.get('reportUrl'), title: data.get('reportTitle') || null }) !== false) form.reset();
     } finally {
-      setUploading(false);
+      setSaving(false);
     }
   }
 
   return <div className="report-files">
-    <h2>Report files</h2>
-    <p className="muted">Upload PDF, Word, or Excel reports. Maximum file size: 10 MB.</p>
-    {locked && <p className="alert completed-lock">This task is completed. Only an Admin can add or remove report files.</p>}
-    {canMutate && <form className="report-upload" onSubmit={submit}>
-      <input aria-label="Report file" name="reportFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required />
-      <button className="button primary" disabled={uploading} type="submit">{uploading ? 'Uploading…' : 'Upload report'}</button>
+    <h2>Report links</h2>
+    <p className="muted">Paste a sharing link to view Excel, Word, or PDF reports online without storing file data in Taskflow.</p>
+    {locked && <p className="alert completed-lock">This task is completed. Only an Admin can add or remove report links.</p>}
+    {canMutate && <form className="report-link-form" onSubmit={submit}>
+      <label>Document link<input aria-label="Document link" name="reportUrl" type="url" inputMode="url" placeholder="https://..." pattern="https://.*" required /></label>
+      <label>Display name <small>(optional)</small><input aria-label="Display name" name="reportTitle" maxLength="255" placeholder="January daily report.xlsx" /></label>
+      <button className="button primary" disabled={saving} type="submit">{saving ? 'Adding…' : 'Add report link'}</button>
     </form>}
-    <div className="report-file-list">
-      {attachments.length === 0 && <div className="empty-report"><span>▤</span><p>No report files uploaded.</p></div>}
-      {attachments.map((attachment) => <article className="report-file" key={attachment.id}>
-        <span className="report-file-icon">▤</span>
-        <div><strong>{attachment.file_name}</strong><small>{readableSize(attachment.file_size)} · Uploaded by {attachment.uploaded_by_name ?? `User ${attachment.uploaded_by}`} · {new Date(attachment.created_at).toLocaleString()}</small></div>
-        <button className="link-button" type="button" onClick={() => onDownload(attachment)}>Download</button>
-        {canMutate && <button className="link-button danger-link" type="button" onClick={() => onDelete(attachment.id)}>Delete</button>}
-      </article>)}
+    <div className="report-card-list">
+      {attachments.length === 0 && <div className="empty-report"><span>↗</span><p>No report links added.</p></div>}
+      {attachments.map((attachment) => {
+        if (!attachment.external_url) return <article className="report-file legacy-report" key={attachment.id}>
+          <span className="report-file-icon">▤</span>
+          <div><strong>{attachment.file_name}</strong><small>Legacy stored file · Added by {attachment.uploaded_by_name ?? `User ${attachment.uploaded_by}`} · {new Date(attachment.created_at).toLocaleString()}</small></div>
+          <button className="link-button" type="button" onClick={() => onDownload(attachment)}>Download</button>
+          {canMutate && <button className="link-button danger-link" type="button" onClick={() => onDelete(attachment.id)}>Delete</button>}
+        </article>;
+        const kind = documentKind(attachment);
+        let host = attachment.provider;
+        try { host ||= new URL(attachment.external_url).hostname; } catch { host ||= 'Online document'; }
+        return <article className="report-link-card" key={attachment.id}>
+          <a href={attachment.external_url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${attachment.file_name}`}>
+            <div className="report-link-title">{attachment.file_name}</div>
+            <div className="report-link-preview"><span className={`document-app-icon ${kind.className}`}>{kind.icon}</span></div>
+            <footer><span className={`document-mini-icon ${kind.className}`}>{kind.icon}</span><span><strong>{attachment.file_name}</strong><small>{kind.label} · {host}</small><small>Added by {attachment.uploaded_by_name ?? `User ${attachment.uploaded_by}`} · {new Date(attachment.created_at).toLocaleString()}</small></span><b>•••</b></footer>
+          </a>
+          {canMutate && <button aria-label={`Delete ${attachment.file_name}`} title="Delete" className="report-card-delete danger-link" type="button" onClick={() => onDelete(attachment.id)}>×</button>}
+        </article>;
+      })}
     </div>
   </div>;
 }

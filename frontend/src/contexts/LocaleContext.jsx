@@ -70,6 +70,18 @@ const documentTranslations = {
     'Name': 'Tên', 'Key': 'Khóa', 'Access': 'Quyền truy cập', 'Open Space': 'Mở Không gian', 'No description provided.': 'Chưa có mô tả.',
     'No matching Spaces': 'Không có Không gian phù hợp', 'No Spaces assigned': 'Chưa được giao Không gian',
     'Try another search or template.': 'Hãy thử tìm kiếm hoặc mẫu khác.', 'Ask an Admin to assign you to a Space.': 'Hãy yêu cầu Quản trị viên giao Không gian cho bạn.',
+    'Monthly backlogs': 'Danh sách chờ theo tháng', 'All months': 'Tất cả các tháng', 'Complete work history': 'Toàn bộ lịch sử công việc',
+    'All months Backlog': 'Danh sách chờ của tất cả các tháng', 'Plan work and review reports by creation month.': 'Lập kế hoạch công việc và xem báo cáo theo tháng tạo.',
+    'Monthly Backlog': 'Danh sách chờ theo tháng', 'Choose a month to open its complete report on the Kanban board.': 'Chọn một tháng để mở báo cáo đầy đủ trên bảng Kanban.',
+    'Monthly report': 'Báo cáo tháng', 'No monthly reports yet.': 'Chưa có báo cáo theo tháng.',
+    'Review reporting tasks by Space, assignee, and calendar day.': 'Xem công việc báo cáo theo Không gian, người được giao và ngày.',
+    'Report year': 'Năm báo cáo', 'Report task': 'Công việc báo cáo', 'Report months': 'Các tháng báo cáo',
+    'Previous months': 'Các tháng trước', 'Next months': 'Các tháng sau', 'No reports for this month.': 'Không có báo cáo trong tháng này.',
+    'Unknown': 'Không xác định', 'Unassigned': 'Chưa giao',
+    'Report filters': 'Bộ lọc báo cáo', 'Person': 'Người thực hiện', 'Report day': 'Ngày báo cáo', 'All days': 'Tất cả các ngày',
+    'Report links': 'Liên kết báo cáo', 'Paste a sharing link to view Excel, Word, or PDF reports online without storing file data in Taskflow.': 'Dán liên kết chia sẻ để xem báo cáo Excel, Word hoặc PDF trực tuyến mà không lưu dữ liệu tệp trong Taskflow.',
+    'Document link': 'Liên kết tài liệu', 'Display name': 'Tên hiển thị', 'Add report link': 'Thêm liên kết báo cáo', 'Adding…': 'Đang thêm…',
+    'No report links added.': 'Chưa thêm liên kết báo cáo.', 'This task is completed. Only an Admin can add or remove report links.': 'Công việc này đã hoàn tất. Chỉ Quản trị viên mới có thể thêm hoặc xóa liên kết báo cáo.',
   },
 };
 const reverseDocumentTranslations = Object.fromEntries(Object.entries(documentTranslations.vi).map(([english, vietnamese]) => [vietnamese, english]));

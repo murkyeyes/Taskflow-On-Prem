@@ -796,6 +796,71 @@ Chỉ thực hiện nếu khách cần truy cập ngoài LAN.
 
 ---
 
+## Phase 28 — Monthly Backlog archive
+
+> User-approved reporting/backlog organization dated 2026-08-25.
+
+- [x] Synchronize Rules and System Design for creation-month Backlog archives
+- [x] Load all issue pages and organize each Space Backlog by creation month
+- [x] Add bookmarkable month navigation, localized dates, and responsive styling
+- [ ] Verify month grouping, existing planning permissions, frontend build, deployment, and browser rendering
+
+---
+
+## Phase 29 — External report links
+
+> User-approved replacement of binary report uploads dated 2026-08-25.
+
+- [x] Synchronize Rules and System Design for URL-only new reports and legacy compatibility
+- [x] Add migration 009 and the JSON report-link API with HTTPS validation
+- [x] Replace file upload rows with online-document link cards and completed-task locking
+- [ ] Verify validation, RBAC, regression tests, frontend build, staged deployment, and browser rendering
+
+---
+
+## Phase 30 — Monthly Backlog to Kanban report navigation
+
+> User-approved Backlog simplification dated 2026-08-25.
+
+- [x] Synchronize Rules and System Design for a month-only Backlog index
+- [x] Remove sprint controls and issue rows in favor of clickable month entries
+- [x] Add complete paginated month filtering to the Kanban Board
+- [x] Verify helper tests, frontend build, deployment, and live routing
+
+---
+
+## Phase 31 — Yearly report-calendar Backlog
+
+> User-approved report table refinement dated 2026-08-25.
+
+- [x] Synchronize Rules and System Design for the year/month report calendar
+- [x] Add report-year selection and horizontally scrollable month navigation
+- [x] Add expandable Space grouping, assignee/status columns, and daily report links
+- [x] Verify calendar helpers, responsive build, deployment, and live route
+
+---
+
+## Phase 32 — Fixed Space row in report calendar
+
+> User-approved calendar scrolling correction dated 2026-08-25.
+
+- [x] Document that only calendar headers and issue rows scroll horizontally
+- [x] Move the expandable Space row outside the horizontal scroller
+- [x] Synchronize header and body scrolling and verify the deployed build
+
+---
+
+## Phase 33 — Daily, assignee, and status Backlog filters
+
+> User-approved report filtering expansion dated 2026-08-25.
+
+- [x] Synchronize Rules and System Design for composable report filters
+- [x] Add clickable day-header filtering with URL persistence
+- [x] Add assignee and workflow-status selectors with clear-filter behavior
+- [x] Verify helper tests, frontend build, deployment, and live route
+
+---
+
 ## Completion rule
 
 

@@ -3,7 +3,7 @@ const test = require('node:test');
 
 const integrationEnabled = process.env.RUN_INTEGRATION === '1';
 
-test('report attachments enforce validation, Space RBAC, completed locking, and Admin override', { skip: !integrationEnabled }, async (context) => {
+test('report links enforce validation, Space RBAC, completed locking, and Admin override', { skip: !integrationEnabled }, async (context) => {
   const jwt = require('jsonwebtoken');
   const env = require('../../src/config/env');
   const pool = require('../../src/config/db');
@@ -34,12 +34,6 @@ test('report attachments enforce validation, Space RBAC, completed locking, and 
     headers: { cookie: cookieFor(name), ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
-  const fileRequest = (name, path, { method = 'POST', fileName = 'report.pdf', mediaType = 'application/pdf', body } = {}) => fetch(`${baseUrl}${path}`, {
-    method,
-    headers: { cookie: cookieFor(name), 'content-type': mediaType, 'x-file-name': encodeURIComponent(fileName) },
-    body,
-  });
-
   const projectResponse = await jsonRequest('admin', '/projects', { method: 'POST', body: { key: 'FILES', name: 'Reports Space' } });
   assert.equal(projectResponse.status, 201);
   const projectId = (await projectResponse.json()).project.id;
@@ -49,35 +43,34 @@ test('report attachments enforce validation, Space RBAC, completed locking, and 
   const createIssue = await jsonRequest('member', `/projects/${projectId}/issues`, { method: 'POST', body: { title: 'Daily report', issueTypeId: types[0].id } });
   assert.equal(createIssue.status, 201);
   const issue = (await createIssue.json()).issue;
-  const pdf = Buffer.from('%PDF-1.4\nTaskflow report\n%%EOF');
-
-  assert.equal((await fileRequest('viewer', `/issues/${issue.issue_key}/attachments`, { body: pdf })).status, 403);
-  assert.equal((await fileRequest('member', `/issues/${issue.issue_key}/attachments`, { fileName: 'fake.pdf', body: Buffer.from('fake') })).status, 415);
-  const upload = await fileRequest('member', `/issues/${issue.issue_key}/attachments`, { fileName: 'daily report.pdf', body: pdf });
-  assert.equal(upload.status, 201);
-  const memberAttachment = (await upload.json()).attachment;
-  assert.equal(memberAttachment.file_name, 'daily report.pdf');
-  assert.equal(memberAttachment.file_size, pdf.length);
+  const memberLinkBody = { url: 'https://docs.google.com/spreadsheets/d/daily-report/edit', title: 'Daily report.xlsx' };
+  assert.equal((await jsonRequest('viewer', `/issues/${issue.issue_key}/attachments`, { method: 'POST', body: memberLinkBody })).status, 403);
+  assert.equal((await jsonRequest('member', `/issues/${issue.issue_key}/attachments`, { method: 'POST', body: { url: 'http://example.com/fake.xlsx' } })).status, 400);
+  const createLink = await jsonRequest('member', `/issues/${issue.issue_key}/attachments`, { method: 'POST', body: memberLinkBody });
+  assert.equal(createLink.status, 201);
+  const memberAttachment = (await createLink.json()).attachment;
+  assert.equal(memberAttachment.file_name, 'Daily report.xlsx');
+  assert.equal(memberAttachment.file_size, null);
+  assert.equal(memberAttachment.provider, 'Google Workspace');
+  assert.match(memberAttachment.external_url, /^https:\/\/docs\.google\.com\//);
 
   const list = await jsonRequest('viewer', `/issues/${issue.issue_key}/attachments`);
   assert.equal(list.status, 200);
   assert.equal((await list.json()).attachments.length, 1);
-  const download = await jsonRequest('viewer', `/attachments/${memberAttachment.id}/download`);
-  assert.equal(download.status, 200);
-  assert.deepEqual(Buffer.from(await download.arrayBuffer()), pdf);
-  assert.equal((await jsonRequest('outsider', `/attachments/${memberAttachment.id}/download`)).status, 403);
+  assert.equal((await jsonRequest('viewer', `/attachments/${memberAttachment.id}/download`)).status, 409);
+  assert.equal((await jsonRequest('outsider', `/issues/${issue.issue_key}/attachments`)).status, 403);
 
-  const adminUpload = await fileRequest('admin', `/issues/${issue.issue_key}/attachments`, { fileName: 'admin.pdf', body: pdf });
-  assert.equal(adminUpload.status, 201);
-  const adminAttachment = (await adminUpload.json()).attachment;
+  const adminCreate = await jsonRequest('admin', `/issues/${issue.issue_key}/attachments`, { method: 'POST', body: { url: 'https://tenant.sharepoint.com/reports/admin.xlsx?web=1' } });
+  assert.equal(adminCreate.status, 201);
+  const adminAttachment = (await adminCreate.json()).attachment;
   assert.equal((await jsonRequest('member', `/attachments/${adminAttachment.id}`, { method: 'DELETE' })).status, 403);
 
   const finalStatus = statuses.find((status) => status.is_final);
   assert.equal((await jsonRequest('member', `/issues/${issue.issue_key}/status`, { method: 'PATCH', body: { statusId: finalStatus.id } })).status, 200);
-  assert.equal((await fileRequest('member', `/issues/${issue.issue_key}/attachments`, { body: pdf })).status, 403);
+  assert.equal((await jsonRequest('member', `/issues/${issue.issue_key}/attachments`, { method: 'POST', body: memberLinkBody })).status, 403);
   assert.equal((await jsonRequest('member', `/attachments/${memberAttachment.id}`, { method: 'DELETE' })).status, 403);
 
-  assert.equal((await fileRequest('admin', `/issues/${issue.issue_key}/attachments`, { fileName: 'completed.xlsx', mediaType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', body: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00]) })).status, 201);
+  assert.equal((await jsonRequest('admin', `/issues/${issue.issue_key}/attachments`, { method: 'POST', body: { url: 'https://example.com/completed.xlsx' } })).status, 201);
   assert.equal((await jsonRequest('admin', `/attachments/${memberAttachment.id}`, { method: 'DELETE' })).status, 204);
   assert.equal((await jsonRequest('admin', `/attachments/${adminAttachment.id}`, { method: 'DELETE' })).status, 204);
 });

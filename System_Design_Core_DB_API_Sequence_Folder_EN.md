@@ -111,9 +111,15 @@ CREATE TABLE issue_attachments (
     uploaded_by   INTEGER      NOT NULL REFERENCES users(id),
     file_name     VARCHAR(255) NOT NULL,
     media_type    VARCHAR(120) NOT NULL,
-    file_size     INTEGER      NOT NULL CHECK (file_size BETWEEN 1 AND 10485760),
-    file_data     BYTEA        NOT NULL,
-    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
+    file_size     INTEGER      CHECK (file_size BETWEEN 1 AND 10485760),
+    file_data     BYTEA,
+    external_url  VARCHAR(2048),
+    provider      VARCHAR(80),
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT issue_attachments_exactly_one_source CHECK (
+      (external_url IS NOT NULL AND file_data IS NULL AND file_size IS NULL)
+      OR (external_url IS NULL AND file_data IS NOT NULL AND file_size IS NOT NULL)
+    )
 );
 
 -- ========== Indexes for common queries ==========
@@ -223,18 +229,18 @@ does not add a table, column, endpoint, or dependency.
 |---|---|---|---|
 | GET | `/projects/:projectId/updates?since=<ISO timestamp>` | viewer | Return issues with `updated_at > since`, plus new comments for those issues. The client calls periodically (recommended every 5–10s) and uses the returned `serverTime` as `since` for the next request to avoid client/server clock drift |
 
-### 2.9 Issue report attachments
+### 2.9 Issue report links
 
-The Issue Detail comments panel is replaced by a Report files panel. Legacy comment data and APIs remain available for compatibility, but no comment composer is rendered.
+The Issue Detail comments panel is replaced by a Report links panel. Legacy comment data/APIs and previously stored binary attachments remain available for compatibility, but no comment or binary-upload composer is rendered.
 
 | Method | Path | Minimum Role | Description |
 |---|---|---|---|
-| GET | `/issues/:issueKey/attachments` | viewer | List attachment metadata without binary data |
-| POST | `/issues/:issueKey/attachments` | member | Raw body up to 10 MiB; `X-File-Name` and `Content-Type` required; accepts `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx` |
-| GET | `/attachments/:id/download` | viewer | Download the file after effective Space access is verified |
-| DELETE | `/attachments/:id` | member uploader or admin | Member may delete only their own file and only while issue is not final; Admin may always delete |
+| GET | `/issues/:issueKey/attachments` | viewer | List external-link metadata and legacy attachment metadata without binary data |
+| POST | `/issues/:issueKey/attachments` | member | JSON `{ url, title? }`; store an absolute HTTPS report link without fetching it |
+| GET | `/attachments/:id/download` | viewer | Download a legacy binary after effective Space access is verified; external rows return `409` |
+| DELETE | `/attachments/:id` | member creator or admin | Member may delete only their own link/file while issue is not final; Admin may always delete |
 
-Upload runs in a transaction: lock the issue, resolve the current workflow status, reject non-admin mutation when `is_final`, validate extension/MIME/signature/size, insert attachment, then touch `issues.updated_at`. Deletion uses the same completed-lock and authorization rules. Bytes are stored as `BYTEA` so the existing `pg_dump -Fc` backup includes report files.
+Link creation runs in a transaction: lock the issue, resolve the current workflow status, reject non-admin mutation when `is_final`, validate the HTTPS URL/title, insert metadata, then touch `issues.updated_at`. Deletion uses the same completed-lock and authorization rules. The server never fetches the remote document.
 
 ---
 
@@ -492,7 +498,7 @@ This section is authoritative and extends Sections 1–4 without changing the re
 
 ### 5.1 Database additions
 
-The official schema now contains 15 tables. The original nine remain unchanged except for the planning columns added to `issues`; `issue_attachments` stores the approved report-file metadata and bytes.
+The official schema now contains 15 tables at this phase. The original nine remain unchanged except for the planning columns added to `issues`; later migration 009 makes `issue_attachments` URL-first while retaining legacy binary rows.
 
 ```sql
 CREATE TABLE sprints (
@@ -766,6 +772,85 @@ same Space and exposes `/projects/:projectId/settings` only for effective Admin 
 The Create Space action and template entry links remain Admin-only and route through
 the canonical `/spaces/new` creation transaction. Sidebar visibility and Admin/member
 Space scoping remain governed by the existing `GET /api/projects` authorization.
+
+## 16. Monthly Backlog archive (approved 2026-08-25)
+
+The Space Backlog adds a month-navigation layer without changing persistence.
+`issues.created_at` is the authoritative archive date and maps each issue to a
+local calendar key in `YYYY-MM` form. The route is
+`/projects/:projectId/backlog?month=YYYY-MM`; an absent key selects the newest
+available month and `month=all` selects the complete Backlog.
+
+The frontend reads every page of `GET /projects/:projectId/issues` in batches of
+100 before building month counts. It then filters the selected month's issues and
+renders them through the existing Backlog/sprint buckets. This preserves issue
+identity, ordering within each bucket, sprint planning, final-status locks, and
+Space authorization. Month links are ordinary URL links, so a selected monthly
+Backlog is bookmarkable and reload-safe. No schema or API contract changes are
+required.
+
+## 17. External report links (approved 2026-08-25)
+
+New report references use the existing `issue_attachments` entity but store no
+document binary. Migration 009 adds `external_url` and `provider`, makes
+`file_size`/`file_data` nullable, and enforces an exclusive source constraint:
+a row is either a legacy binary attachment or an external report link. Historical
+binary rows remain downloadable until an authorized user removes them.
+
+`POST /issues/:issueKey/attachments` now consumes JSON `{ url, title? }`. The
+controller accepts only absolute HTTPS URLs up to 2048 characters. The service
+locks the issue, applies the existing final-status/Admin rule, inserts link metadata,
+and touches `issues.updated_at` in one transaction. It never requests or previews
+the remote resource server-side, avoiding SSRF and unbounded database storage.
+
+The Issue Detail client renders responsive document cards with a provider/file-type
+icon, title, host, uploader, and creation date. External cards are anchors using
+`target="_blank"` and `rel="noopener noreferrer"`; legacy rows retain the existing
+authenticated download action. Delete authorization is unchanged.
+
+## 18. Monthly Backlog report index (approved 2026-08-25)
+
+The Backlog route is a lightweight reporting index rather than a second issue
+planner. It fetches every page from `GET /projects/:projectId/issues`, groups rows
+by the local-calendar `YYYY-MM` key derived from `issues.created_at`, and renders
+one navigable month row with its issue count. Sprint creation controls, sprint
+buckets, and individual issue planning rows are not rendered on this page.
+
+Selecting a month navigates to
+`/projects/:projectId/board?month=YYYY-MM`. `ProjectBoardPage` validates the query,
+loads the complete paginated result, applies the creation-month predicate before
+its existing client filters, and renders the matching report tasks in their normal
+workflow columns. Missing or malformed month values retain the ordinary all-issue
+Kanban view. This composition reuses the current issue API, RBAC, workflow, and
+completed-item protections and requires no database migration.
+
+## 19. Yearly report-calendar Backlog (approved 2026-08-25)
+
+The Space Backlog is rendered as a two-axis report calendar. A year selector and
+twelve horizontally scrollable month controls determine the selected calendar. The
+URL query uses `year=YYYY&month=M`; invalid values fall back to the newest report
+period available from the full issue result.
+
+For the selected period, the UI builds the exact list of local calendar days and a
+row for every issue whose `created_at` belongs to that month. The first three sticky
+columns show issue title/key, `assignee_name`, and the workflow status resolved from
+the Space status list. The remaining day columns contain a link only on the issue's
+creation day. Activating it opens the canonical issue-detail route, which remains the
+only place that lists external report links. A collapsible full-width Space row owns
+the issue rows. This is client-side composition over existing paginated issue and
+workflow-status endpoints and requires no schema change.
+
+The calendar header and issue body use separate horizontal overflow containers. The
+body owns the scrollbar and copies its `scrollLeft` into the header, while the Space
+group control sits between them outside both overflow containers. Consequently the
+day columns remain aligned and the Space row never moves horizontally.
+
+Day headers act as filters over the already selected year/month result. The client
+then applies optional `assignee_id` and `status_id` predicates before rendering rows.
+The query contract is `?year=YYYY&month=M&day=D&assignee=ID&status=ID`; absent or
+invalid optional values mean no filter. Clicking the selected day toggles it off.
+All predicates are presentation-only and continue to use the complete paginated
+issue collection and the Space workflow-status endpoint.
 
 ## 9. Issue completion dates, immutable completion, and self-assignment (2026-08-22)
 

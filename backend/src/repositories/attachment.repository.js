@@ -6,6 +6,8 @@ const metadataColumns = `attachment.id,
                          attachment.file_name,
                          attachment.media_type,
                          attachment.file_size,
+                         attachment.external_url,
+                         attachment.provider,
                          attachment.created_at`;
 
 async function listByIssueKey(issueKey, client = pool) {
@@ -21,13 +23,13 @@ async function listByIssueKey(issueKey, client = pool) {
   return result.rows;
 }
 
-async function create(data, client = pool) {
+async function createLink(data, client = pool) {
   const result = await client.query(
     `INSERT INTO issue_attachments
-       (issue_id, uploaded_by, file_name, media_type, file_size, file_data)
+       (issue_id, uploaded_by, file_name, media_type, external_url, provider)
      VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, issue_id, uploaded_by, file_name, media_type, file_size, created_at`,
-    [data.issueId, data.uploadedBy, data.fileName, data.mediaType, data.fileSize, data.fileData],
+     RETURNING id, issue_id, uploaded_by, file_name, media_type, file_size, external_url, provider, created_at`,
+    [data.issueId, data.uploadedBy, data.fileName, data.mediaType, data.externalUrl, data.provider],
   );
   return result.rows[0];
 }
@@ -51,4 +53,4 @@ async function remove(id, client = pool) {
   return result.rowCount === 1;
 }
 
-module.exports = { create, findById, listByIssueKey, remove };
+module.exports = { createLink, findById, listByIssueKey, remove };

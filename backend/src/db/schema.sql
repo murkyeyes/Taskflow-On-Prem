@@ -141,10 +141,16 @@ CREATE TABLE issue_attachments (
     uploaded_by INTEGER      NOT NULL REFERENCES users(id),
     file_name   VARCHAR(255) NOT NULL,
     media_type  VARCHAR(120) NOT NULL,
-    file_size   INTEGER      NOT NULL CHECK (file_size BETWEEN 1 AND 10485760),
-    file_data   BYTEA        NOT NULL,
+    file_size   INTEGER      CHECK (file_size BETWEEN 1 AND 10485760),
+    file_data   BYTEA,
+    external_url VARCHAR(2048),
+    provider    VARCHAR(80),
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    CONSTRAINT issue_attachments_size_matches_data CHECK (octet_length(file_data) = file_size)
+    CONSTRAINT issue_attachments_size_matches_data CHECK (file_data IS NULL OR octet_length(file_data) = file_size),
+    CONSTRAINT issue_attachments_exactly_one_source CHECK (
+        (external_url IS NOT NULL AND file_data IS NULL AND file_size IS NULL)
+        OR (external_url IS NULL AND file_data IS NOT NULL AND file_size IS NOT NULL)
+    )
 );
 
 CREATE TABLE project_docs (

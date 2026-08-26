@@ -1,22 +1,12 @@
 const attachmentService = require('../services/attachment.service');
-const HttpError = require('../utils/httpError');
 const { requireInteger } = require('../utils/validation');
-
-function decodeFileName(value) {
-  if (typeof value !== 'string') throw new HttpError(400, 'FILE_NAME_REQUIRED', 'X-File-Name header is required');
-  try { return decodeURIComponent(value); } catch { throw new HttpError(400, 'INVALID_FILE_NAME', 'X-File-Name must be URI encoded'); }
-}
 
 async function list(request, response) {
   response.json({ attachments: await attachmentService.listAttachments(request.params.issueKey) });
 }
 
-async function upload(request, response) {
-  const attachment = await attachmentService.uploadAttachment(request.params.issueKey, request.user.userId, request.projectRole, {
-    fileName: decodeFileName(request.get('x-file-name')),
-    mediaType: request.get('content-type'),
-    fileData: request.body,
-  });
+async function createLink(request, response) {
+  const attachment = await attachmentService.createAttachmentLink(request.params.issueKey, request.user.userId, request.projectRole, request.body);
   response.status(201).json({ attachment });
 }
 
@@ -42,4 +32,4 @@ async function remove(request, response) {
   response.status(204).send();
 }
 
-module.exports = { download, list, remove, upload };
+module.exports = { createLink, download, list, remove };
