@@ -894,6 +894,17 @@ Chỉ thực hiện nếu khách cần truy cập ngoài LAN.
 
 ---
 
+## Phase 37 — Searchable multi-task Backlog filter
+
+> User-approved task-name filter parity dated 2026-08-26.
+
+- [x] Synchronize Rules and System Design for task checklist filtering
+- [x] Add task-name/key search with multi-select and Select All
+- [x] Compose task selection with person, status, day, and URL persistence
+- [x] Verify tests, production build, deployment, and live route
+
+---
+
 ## Completion rule
 
 

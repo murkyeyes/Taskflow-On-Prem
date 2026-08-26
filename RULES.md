@@ -791,6 +791,10 @@ read-only reporting and authorization boundaries.
 - Applied assignees are reload-safe in the existing `assignee` query as a
   comma-separated set of account IDs and optional `unassigned`. An absent value
   means Everyone. Status/day filters continue to compose with this selection.
+- The Backlog also provides a Task checklist with the same search, multi-select,
+  Select All, Apply, Cancel, and dismissal behavior. It matches task title and
+  issue key locally. Applied task IDs are stored as a comma-separated `task`
+  query and compose with person, status, and report-day filters.
 
 ---
 

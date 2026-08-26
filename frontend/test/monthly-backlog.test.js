@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { availableReportYears, buildMonthlyArchive, daysInReportMonth, filterAssigneeSuggestions, filterIssuesByMonth, filterReportIssues, formatMonth, loadAllIssuePages, monthKeyFor, monthlyBoardPath, normalizeAssigneeFilter, normalizeMonthKey, normalizeReportDay, normalizeReportMonth, normalizeReportYear, reportDayFor } from '../src/utils/monthlyBacklog.js';
+import { availableReportYears, buildMonthlyArchive, daysInReportMonth, filterAssigneeSuggestions, filterIssuesByMonth, filterReportIssues, formatMonth, loadAllIssuePages, monthKeyFor, monthlyBoardPath, normalizeAssigneeFilter, normalizeMonthKey, normalizeReportDay, normalizeReportMonth, normalizeReportYear, normalizeTaskFilter, reportDayFor } from '../src/utils/monthlyBacklog.js';
 
 const issues = [
   { id: 1, created_at: '2026-01-05T12:00:00.000Z' },
@@ -100,4 +100,17 @@ test('validates and applies reload-safe multi-assignee checklist filters', () =>
     { id: 3, created_at: '2026-08-24T16:00:00.000Z', assignee_id: 8, status_id: 2 },
   ];
   assert.deepEqual(filterReportIssues(reports, { assignees: ['7', 'unassigned'] }).map(({ id }) => id), [1, 2]);
+});
+
+test('searches task title/key and applies validated multi-task filters', () => {
+  const reports = [
+    { id: 10, issue_key: 'SALE-10', title: 'January sales report', created_at: '2026-08-24T12:00:00.000Z' },
+    { id: 11, issue_key: 'SALE-11', title: 'Customer follow-up', created_at: '2026-08-24T14:00:00.000Z' },
+    { id: 12, issue_key: 'SALE-12', title: 'Monthly revenue', created_at: '2026-08-24T16:00:00.000Z' },
+  ];
+  const options = reports.map((issue) => ({ value: String(issue.id), name: issue.title, issueKey: issue.issue_key }));
+  assert.deepEqual(filterAssigneeSuggestions(options, 'revenue').map(({ value }) => value), ['12']);
+  assert.deepEqual(filterAssigneeSuggestions(options, 'sale-11').map(({ value }) => value), ['11']);
+  assert.deepEqual(normalizeTaskFilter('10,12,10,999', reports), ['10', '12']);
+  assert.deepEqual(filterReportIssues(reports, { tasks: ['10', '12'] }).map(({ id }) => id), [10, 12]);
 });

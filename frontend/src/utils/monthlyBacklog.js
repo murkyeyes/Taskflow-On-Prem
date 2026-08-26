@@ -91,10 +91,16 @@ export function normalizeAssigneeFilter(value, options = [], hasUnassigned = fal
   return [...new Set(String(value ?? '').split(',').map((entry) => entry.trim()).filter((entry) => allowed.has(entry)))];
 }
 
-export function filterReportIssues(issues, { day = null, assignee = '', assignees = null, status = '' } = {}) {
+export function normalizeTaskFilter(value, issues = []) {
+  const allowed = new Set(issues.map(({ id }) => String(id)));
+  return [...new Set(String(value ?? '').split(',').map((entry) => entry.trim()).filter((entry) => allowed.has(entry)))];
+}
+
+export function filterReportIssues(issues, { day = null, assignee = '', assignees = null, status = '', tasks = [] } = {}) {
   const selectedAssignees = assignees ?? (assignee ? [assignee] : []);
   return issues.filter((issue) => {
     if (day && reportDayFor(issue.created_at) !== day) return false;
+    if (tasks.length && !tasks.includes(String(issue.id))) return false;
     if (selectedAssignees.length) {
       const assigneeValue = issue.assignee_id == null ? 'unassigned' : String(issue.assignee_id);
       if (!selectedAssignees.includes(assigneeValue)) return false;
@@ -107,7 +113,7 @@ export function filterReportIssues(issues, { day = null, assignee = '', assignee
 export function filterAssigneeSuggestions(options, query) {
   const term = query.trim().toLocaleLowerCase();
   if (!term) return options;
-  return options.filter(({ name }) => name.toLocaleLowerCase().includes(term));
+  return options.filter(({ name, issueKey = '' }) => `${issueKey} ${name}`.toLocaleLowerCase().includes(term));
 }
 
 export function formatMonth(key, locale = 'en') {

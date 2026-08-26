@@ -868,6 +868,13 @@ applied value is a set of account IDs plus optional `unassigned`, used as an OR
 predicate before the existing priority/status grouping pipeline. An empty/all-
 checked selection means Everyone. No API or database contract changes.
 
+The report Backlog task-name control derives `{ value: issue.id, name, issueKey }`
+options from the already loaded selected-month issues. It applies the same local
+search and staged checkbox behavior as the Person control. The query contract adds
+optional `task=ID,ID`; invalid or out-of-month IDs are ignored. Selected task IDs
+are an OR predicate, then compose with day, assignee, and status predicates. This
+requires no additional request, schema, or permission change.
+
 ## 9. Issue completion dates, immutable completion, and self-assignment (2026-08-22)
 
 `issues.completed_at TIMESTAMPTZ NULL` records the current completion timestamp. A transition into a workflow status with `is_final = true` sets it in the same transaction as the status update/history insert. An Admin transition back to a non-final status clears it; re-completion sets a new timestamp. Migration `003-issue-completion.sql` adds the column and project/date indexes to existing installations.
