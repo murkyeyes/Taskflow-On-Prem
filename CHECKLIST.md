@@ -861,6 +861,39 @@ Chỉ thực hiện nếu khách cần truy cập ngoài LAN.
 
 ---
 
+## Phase 34 — Searchable assignee suggestions
+
+> User-approved Backlog assignee-search refinement dated 2026-08-25.
+
+- [x] Synchronize Rules and System Design for the searchable picker
+- [x] Replace the fixed Person select with name suggestions
+- [x] Preserve URL filtering, Everyone/Unassigned choices, and clear behavior
+- [x] Verify suggestion tests, frontend build, deployment, and live route
+
+---
+
+## Phase 35 — Searchable multi-person report filter
+
+> User-corrected checklist/filter behavior dated 2026-08-25.
+
+- [x] Synchronize Rules and System Design for searchable multi-selection
+- [x] Preserve checked people while search narrows the checklist
+- [x] Add Select All, Apply, Cancel, and reload-safe multi-person URL filtering
+- [x] Verify helper tests, frontend build, deployment, and live route
+
+---
+
+## Phase 36 — Searchable multi-person Kanban filter
+
+> User-approved parity with the report checklist dated 2026-08-25.
+
+- [x] Synchronize Rules and System Design for Kanban checklist filtering
+- [x] Replace the Kanban datalist with searchable multi-selection
+- [x] Preserve all existing Kanban filters, grouping, and permissions
+- [x] Verify tests, production build, deployment, and live route
+
+---
+
 ## Completion rule
 
 

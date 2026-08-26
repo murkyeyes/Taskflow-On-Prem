@@ -852,6 +852,22 @@ invalid optional values mean no filter. Clicking the selected day toggles it off
 All predicates are presentation-only and continue to use the complete paginated
 issue collection and the Space workflow-status endpoint.
 
+The assignee control derives unique `{ id, name }` options from the selected month's
+issue rows. It renders a searchable checkbox menu whose search text filters locally
+by case-insensitive name substring without changing checked state. A draft selection
+is committed only by Apply; Cancel/outside dismissal restores the applied values.
+Select All clears the predicate (Everyone), while individual values serialize as
+`assignee=ID,ID` with optional `unassigned`. The reader accepts the prior single-ID
+form for backward compatibility. No account-search endpoint or additional request is
+introduced.
+
+The Kanban board reuses the same draft/commit checklist model in local component
+state. Its member options are loaded once with the normal Space-assignee request;
+typing filters that in-memory set instead of issuing a request per keystroke. The
+applied value is a set of account IDs plus optional `unassigned`, used as an OR
+predicate before the existing priority/status grouping pipeline. An empty/all-
+checked selection means Everyone. No API or database contract changes.
+
 ## 9. Issue completion dates, immutable completion, and self-assignment (2026-08-22)
 
 `issues.completed_at TIMESTAMPTZ NULL` records the current completion timestamp. A transition into a workflow status with `is_final = true` sets it in the same transaction as the status update/history insert. An Admin transition back to a non-final status clears it; re-completion sets a new timestamp. Migration `003-issue-completion.sql` adds the column and project/date indexes to existing installations.

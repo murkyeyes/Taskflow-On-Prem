@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { availableReportYears, buildMonthlyArchive, daysInReportMonth, filterIssuesByMonth, filterReportIssues, formatMonth, loadAllIssuePages, monthKeyFor, monthlyBoardPath, normalizeMonthKey, normalizeReportDay, normalizeReportMonth, normalizeReportYear, reportDayFor } from '../src/utils/monthlyBacklog.js';
+import { availableReportYears, buildMonthlyArchive, daysInReportMonth, filterAssigneeSuggestions, filterIssuesByMonth, filterReportIssues, formatMonth, loadAllIssuePages, monthKeyFor, monthlyBoardPath, normalizeAssigneeFilter, normalizeMonthKey, normalizeReportDay, normalizeReportMonth, normalizeReportYear, reportDayFor } from '../src/utils/monthlyBacklog.js';
 
 const issues = [
   { id: 1, created_at: '2026-01-05T12:00:00.000Z' },
@@ -77,4 +77,27 @@ test('validates report days and composes day, assignee, and status filters', () 
   assert.deepEqual(filterReportIssues(reports, { day: 24 }).map(({ id }) => id), [1, 2]);
   assert.deepEqual(filterReportIssues(reports, { assignee: 'unassigned' }).map(({ id }) => id), [2]);
   assert.deepEqual(filterReportIssues(reports, { day: 24, assignee: '7', status: '2' }).map(({ id }) => id), [1]);
+});
+
+test('searches assignee suggestions by name without case sensitivity', () => {
+  const options = [
+    { value: '7', name: 'Taskflow Member' },
+    { value: '8', name: 'KHAI' },
+    { value: '9', name: 'Sales Reporter' },
+  ];
+  assert.deepEqual(filterAssigneeSuggestions(options, 'task').map(({ value }) => value), ['7']);
+  assert.deepEqual(filterAssigneeSuggestions(options, 'AI').map(({ value }) => value), ['8']);
+  assert.equal(filterAssigneeSuggestions(options, '').length, 3);
+});
+
+test('validates and applies reload-safe multi-assignee checklist filters', () => {
+  const options = [{ id: 7, name: 'Taskflow Member' }, { id: 8, name: 'KHAI' }];
+  assert.deepEqual(normalizeAssigneeFilter('7,unassigned,7,invalid', options, true), ['7', 'unassigned']);
+  assert.deepEqual(normalizeAssigneeFilter('7,unassigned', options, false), ['7']);
+  const reports = [
+    { id: 1, created_at: '2026-08-24T12:00:00.000Z', assignee_id: 7, status_id: 2 },
+    { id: 2, created_at: '2026-08-24T14:00:00.000Z', assignee_id: null, status_id: 2 },
+    { id: 3, created_at: '2026-08-24T16:00:00.000Z', assignee_id: 8, status_id: 2 },
+  ];
+  assert.deepEqual(filterReportIssues(reports, { assignees: ['7', 'unassigned'] }).map(({ id }) => id), [1, 2]);
 });

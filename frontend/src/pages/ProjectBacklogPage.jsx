@@ -8,11 +8,13 @@ import {
   availableReportYears,
   buildMonthlyArchive,
   daysInReportMonth,
+  filterAssigneeSuggestions,
   filterIssuesByMonth,
   filterReportIssues,
   formatCreatedDate,
   formatMonth,
   loadAllIssuePages,
+  normalizeAssigneeFilter,
   normalizeReportDay,
   normalizeReportMonth,
   normalizeReportYear,
@@ -32,6 +34,9 @@ export default function ProjectBacklogPage() {
   const [issues, setIssues] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [expanded, setExpanded] = useState(true);
+  const [personSearch, setPersonSearch] = useState('');
+  const [personMenuOpen, setPersonMenuOpen] = useState(false);
+  const [draftAssignees, setDraftAssignees] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const monthScroller = useRef(null);
@@ -77,20 +82,35 @@ export default function ProjectBacklogPage() {
     return [...names.entries()].map(([id, name]) => ({ id, name })).sort((left, right) => left.name.localeCompare(right.name));
   }, [monthlyIssues]);
   const hasUnassigned = monthlyIssues.some((issue) => issue.assignee_id == null);
-  const requestedAssignee = searchParams.get('assignee') ?? '';
-  const selectedAssignee = requestedAssignee === 'unassigned'
-    ? (hasUnassigned ? requestedAssignee : '')
-    : (assigneeOptions.some(({ id }) => String(id) === requestedAssignee) ? requestedAssignee : '');
+  const selectedAssignees = useMemo(
+    () => normalizeAssigneeFilter(searchParams.get('assignee'), assigneeOptions, hasUnassigned),
+    [assigneeOptions, hasUnassigned, searchParams],
+  );
   const requestedStatus = searchParams.get('status') ?? '';
   const selectedStatus = statuses.some(({ id }) => String(id) === requestedStatus) ? requestedStatus : '';
+  const assigneeSuggestions = useMemo(() => [
+    ...(hasUnassigned ? [{ value: 'unassigned', name: locale === 'vi' ? 'Chưa giao' : 'Unassigned' }] : []),
+    ...assigneeOptions.map(({ id, name }) => ({ value: String(id), name })),
+  ], [assigneeOptions, hasUnassigned, locale]);
+  const allAssigneeValues = useMemo(() => assigneeSuggestions.map(({ value }) => value), [assigneeSuggestions]);
+  const matchingAssignees = useMemo(
+    () => filterAssigneeSuggestions(assigneeSuggestions, personSearch),
+    [assigneeSuggestions, personSearch],
+  );
   const visibleIssues = useMemo(
-    () => filterReportIssues(monthlyIssues, { day: activeDay, assignee: selectedAssignee, status: selectedStatus }),
-    [activeDay, monthlyIssues, selectedAssignee, selectedStatus],
+    () => filterReportIssues(monthlyIssues, { day: activeDay, assignees: selectedAssignees, status: selectedStatus }),
+    [activeDay, monthlyIssues, selectedAssignees, selectedStatus],
   );
   const statusById = useMemo(() => new Map(statuses.map((status) => [status.id, status])), [statuses]);
   const monthFormatter = useMemo(() => new Intl.DateTimeFormat(locale === 'vi' ? 'vi-VN' : 'en-US', { month: 'short' }), [locale]);
 
+  useEffect(() => {
+    if (!personMenuOpen) setDraftAssignees(selectedAssignees.length ? selectedAssignees : allAssigneeValues);
+  }, [allAssigneeValues, personMenuOpen, selectedAssignees]);
+
   function selectPeriod(year, month) {
+    setPersonSearch('');
+    setPersonMenuOpen(false);
     setSearchParams({ year: String(year), month: String(month) });
   }
 
@@ -107,7 +127,37 @@ export default function ProjectBacklogPage() {
   }
 
   function clearFilters() {
+    setPersonSearch('');
+    setPersonMenuOpen(false);
     setSearchParams({ year: String(activeYear), month: String(activeMonth) });
+  }
+
+  function openPersonMenu() {
+    setDraftAssignees(selectedAssignees.length ? selectedAssignees : allAssigneeValues);
+    setPersonSearch('');
+    setPersonMenuOpen(true);
+  }
+
+  function dismissPersonMenu() {
+    setDraftAssignees(selectedAssignees.length ? selectedAssignees : allAssigneeValues);
+    setPersonSearch('');
+    setPersonMenuOpen(false);
+  }
+
+  function toggleDraftAssignee(value) {
+    setDraftAssignees((current) => current.includes(value)
+      ? current.filter((entry) => entry !== value)
+      : [...current, value]);
+  }
+
+  function toggleAllAssignees() {
+    setDraftAssignees(draftAssignees.length === allAssigneeValues.length ? [] : allAssigneeValues);
+  }
+
+  function applyAssigneeFilter() {
+    updateFilter('assignee', draftAssignees.length === allAssigneeValues.length ? '' : draftAssignees.join(','));
+    setPersonSearch('');
+    setPersonMenuOpen(false);
   }
 
   function selectYear(event) {
@@ -156,14 +206,55 @@ export default function ProjectBacklogPage() {
     </section>
 
     <section className="report-filter-bar panel" aria-label="Report filters">
-      <label>
-        <span>Person</span>
-        <select value={selectedAssignee} onChange={(event) => updateFilter('assignee', event.target.value)}>
-          <option value="">Everyone</option>
-          {hasUnassigned && <option value="unassigned">Unassigned</option>}
-          {assigneeOptions.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}</option>)}
-        </select>
-      </label>
+      <div className="report-person-picker" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) dismissPersonMenu(); }}>
+        <label htmlFor="report-person-search">Person</label>
+        <span className="report-person-input">
+          <span aria-hidden="true">⌕</span>
+          <input
+            id="report-person-search"
+            type="search"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-controls="report-person-suggestions"
+            aria-expanded={personMenuOpen}
+            placeholder={selectedAssignees.length
+              ? `${selectedAssignees.length} ${locale === 'vi' ? 'người đã chọn' : selectedAssignees.length === 1 ? 'person selected' : 'people selected'}`
+              : (locale === 'vi' ? 'Mọi người — tìm theo tên' : 'Everyone — search by name')}
+            value={personSearch}
+            onFocus={openPersonMenu}
+            onChange={(event) => {
+              setPersonSearch(event.target.value);
+              if (!personMenuOpen) openPersonMenu();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') dismissPersonMenu();
+              if (event.key === 'Enter' && personMenuOpen) {
+                event.preventDefault();
+                applyAssigneeFilter();
+              }
+            }}
+          />
+          <button type="button" aria-label="Open person checklist" onClick={() => (personMenuOpen ? dismissPersonMenu() : openPersonMenu())}>⌄</button>
+        </span>
+        {personMenuOpen && <div className="report-person-suggestions report-person-checklist" id="report-person-suggestions" role="group" aria-label="Select people">
+          <label className="report-select-all">
+            <input type="checkbox" checked={allAssigneeValues.length > 0 && draftAssignees.length === allAssigneeValues.length} onChange={toggleAllAssignees} />
+            <strong>{locale === 'vi' ? '(Chọn tất cả)' : '(Select All)'}</strong>
+          </label>
+          <div className="report-person-option-list">
+            {matchingAssignees.map((suggestion) => <label key={suggestion.value}>
+              <input type="checkbox" checked={draftAssignees.includes(suggestion.value)} onChange={() => toggleDraftAssignee(suggestion.value)} />
+              <span className="avatar-mini">{suggestion.value === 'unassigned' ? '?' : suggestion.name.slice(0, 1).toUpperCase()}</span>
+              <span>{suggestion.name}</span>
+            </label>)}
+          </div>
+          {!matchingAssignees.length && <p>No matching people.</p>}
+          <footer>
+            <button type="button" className="button primary" onClick={applyAssigneeFilter}>{locale === 'vi' ? 'Áp dụng' : 'Apply'}</button>
+            <button type="button" className="button subtle" onClick={dismissPersonMenu}>{locale === 'vi' ? 'Hủy' : 'Cancel'}</button>
+          </footer>
+        </div>}
+      </div>
       <label>
         <span>Status</span>
         <select value={selectedStatus} onChange={(event) => updateFilter('status', event.target.value)}>
@@ -175,7 +266,7 @@ export default function ProjectBacklogPage() {
         <span>Report day</span>
         <strong>{activeDay ? `${activeDay}/${activeMonth}/${activeYear}` : 'All days'}</strong>
       </div>
-      <button type="button" className="button subtle" disabled={!activeDay && !selectedAssignee && !selectedStatus} onClick={clearFilters}>Clear filters</button>
+      <button type="button" className="button subtle" disabled={!activeDay && !selectedAssignees.length && !selectedStatus} onClick={clearFilters}>Clear filters</button>
     </section>
 
     {loading && <p className="empty-row">Loading…</p>}

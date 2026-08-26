@@ -79,6 +79,7 @@ const documentTranslations = {
     'Previous months': 'Các tháng trước', 'Next months': 'Các tháng sau', 'No reports for this month.': 'Không có báo cáo trong tháng này.',
     'Unknown': 'Không xác định', 'Unassigned': 'Chưa giao',
     'Report filters': 'Bộ lọc báo cáo', 'Person': 'Người thực hiện', 'Report day': 'Ngày báo cáo', 'All days': 'Tất cả các ngày',
+    'Search person by name': 'Tìm người theo tên', 'No matching people.': 'Không tìm thấy người phù hợp.',
     'Report links': 'Liên kết báo cáo', 'Paste a sharing link to view Excel, Word, or PDF reports online without storing file data in Taskflow.': 'Dán liên kết chia sẻ để xem báo cáo Excel, Word hoặc PDF trực tuyến mà không lưu dữ liệu tệp trong Taskflow.',
     'Document link': 'Liên kết tài liệu', 'Display name': 'Tên hiển thị', 'Add report link': 'Thêm liên kết báo cáo', 'Adding…': 'Đang thêm…',
     'No report links added.': 'Chưa thêm liên kết báo cáo.', 'This task is completed. Only an Admin can add or remove report links.': 'Công việc này đã hoàn tất. Chỉ Quản trị viên mới có thể thêm hoặc xóa liên kết báo cáo.',

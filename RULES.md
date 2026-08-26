@@ -783,3 +783,25 @@ read-only reporting and authorization boundaries.
   and status filters compose together and are stored in the URL query so the
   filtered report remains reload-safe. Filtering never changes task ownership or
   workflow state.
+- The assignee selector is an Excel-style searchable checklist rather than a
+  single-result combobox. Typing only narrows the visible checklist; it must not
+  discard already checked people. The menu includes Select All and Unassigned
+  where applicable, supports multiple assignees, and commits changes only through
+  Apply. Cancel or dismiss restores the currently applied selection.
+- Applied assignees are reload-safe in the existing `assignee` query as a
+  comma-separated set of account IDs and optional `unassigned`. An absent value
+  means Everyone. Status/day filters continue to compose with this selection.
+
+---
+
+## 26. Kanban searchable multi-person filter (approved 2026-08-25)
+
+- The Kanban Assignee control uses the same searchable checklist interaction as
+  the report Backlog: multiple checked people, Select All, optional Unassigned,
+  and explicit Apply/Cancel actions.
+- Search text narrows the visible checklist locally and never changes the applied
+  board filter or removes hidden checked people. Apply commits the draft; Cancel
+  and outside dismissal restore the last applied selection.
+- The checklist composes with board text, status, priority, creation/completion
+  dates, monthly scope, and grouping. It does not change assignees, permissions,
+  issue data, or the Kanban grouping/sorting order.

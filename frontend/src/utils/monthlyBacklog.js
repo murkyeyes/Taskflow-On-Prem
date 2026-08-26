@@ -85,14 +85,29 @@ export function normalizeReportDay(value, maximumDay) {
   return Number.isInteger(day) && day >= 1 && day <= maximumDay ? day : null;
 }
 
-export function filterReportIssues(issues, { day = null, assignee = '', status = '' } = {}) {
+export function normalizeAssigneeFilter(value, options = [], hasUnassigned = false) {
+  const allowed = new Set(options.map(({ id }) => String(id)));
+  if (hasUnassigned) allowed.add('unassigned');
+  return [...new Set(String(value ?? '').split(',').map((entry) => entry.trim()).filter((entry) => allowed.has(entry)))];
+}
+
+export function filterReportIssues(issues, { day = null, assignee = '', assignees = null, status = '' } = {}) {
+  const selectedAssignees = assignees ?? (assignee ? [assignee] : []);
   return issues.filter((issue) => {
     if (day && reportDayFor(issue.created_at) !== day) return false;
-    if (assignee === 'unassigned' && issue.assignee_id != null) return false;
-    if (assignee && assignee !== 'unassigned' && issue.assignee_id !== Number(assignee)) return false;
+    if (selectedAssignees.length) {
+      const assigneeValue = issue.assignee_id == null ? 'unassigned' : String(issue.assignee_id);
+      if (!selectedAssignees.includes(assigneeValue)) return false;
+    }
     if (status && issue.status_id !== Number(status)) return false;
     return true;
   });
+}
+
+export function filterAssigneeSuggestions(options, query) {
+  const term = query.trim().toLocaleLowerCase();
+  if (!term) return options;
+  return options.filter(({ name }) => name.toLocaleLowerCase().includes(term));
 }
 
 export function formatMonth(key, locale = 'en') {
