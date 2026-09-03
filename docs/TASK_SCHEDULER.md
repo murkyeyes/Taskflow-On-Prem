@@ -1,9 +1,35 @@
-# Nightly PostgreSQL backup
+# Windows Task Scheduler: Supabase backups
 
-Run PowerShell as the account that owns Docker Desktop and schedule:
+The current production procedure is the self-contained [`backup/`](../backup/README.md)
+package. It supersedes the older Docker/DPAPI daily and weekly scripts under
+`scripts/`.
 
-```powershell
-pwsh.exe -NoProfile -ExecutionPolicy Bypass -File D:\deploy_web\Taskflow-On-Prem\scripts\backup-postgres.ps1
-```
+Taskflow creates a verified PostgreSQL custom-format logical backup at 00:00,
+06:00, 12:00, and 18:00 Vietnam time. The task connects directly to Supabase and
+does not depend on Render or the application backend.
 
-Create a daily Task Scheduler trigger after Docker Desktop is available at sign-in. Keep the task running only after the Docker Compose `db` service is healthy. The script retains the newest 14 `.dump` files and fails loudly if `pg_dump` or `docker cp` fails.
+## Quick setup
+
+1. Install PostgreSQL command-line tools on the trusted Windows backup machine.
+2. Copy `backup/.env.example` to the Git-ignored `backup/.env` and add the Supabase
+   Session pooler URI.
+3. Prove one manual backup:
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\backup\backup-supabase.ps1
+   ```
+
+4. From PowerShell opened with **Run as administrator**, register the restart-safe
+   SYSTEM task:
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\backup\setup-scheduled-task.ps1 -RunNow
+   ```
+
+5. Confirm `LastTaskResult` is `0`, a new `.dump` and `.sha256` exist, and
+   `D:\CompanyBackups\Supabase\logs\backup.log` ends with
+   `FINAL status=SUCCESS`.
+
+All prerequisites, security notes, configuration options, retention behavior,
+verification commands, and the deliberately guarded restore workflow are documented
+in [`backup/README.md`](../backup/README.md).

@@ -7,8 +7,15 @@ export class ApiError extends Error {
   }
 }
 
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+export const API_BASE_URL = (configuredBaseUrl || '/api').replace(/\/$/, '');
+
+export function apiUrl(path) {
+  return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
 export async function apiRequest(path, options = {}) {
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(apiUrl(path), {
     ...options,
     credentials: 'include',
     headers: {

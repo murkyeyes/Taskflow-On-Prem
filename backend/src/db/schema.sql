@@ -45,8 +45,12 @@ CREATE TABLE projects (
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
     template_key VARCHAR(40)  NOT NULL DEFAULT 'kanban',
     enabled_features JSONB    NOT NULL DEFAULT '["summary","backlog","board","development","timeline","docs","forms"]'::jsonb,
+    deleted_at TIMESTAMPTZ,
+    deleted_by INTEGER REFERENCES users(id),
     CHECK (jsonb_typeof(enabled_features) = 'array')
 );
+
+CREATE INDEX idx_projects_active_name ON projects (name, id) WHERE deleted_at IS NULL;
 
 CREATE TABLE project_members (
     project_id   INTEGER     NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -219,3 +223,22 @@ CREATE INDEX idx_project_docs_project_updated ON project_docs(project_id, update
 CREATE INDEX idx_project_forms_project ON project_forms(project_id);
 CREATE INDEX idx_form_submissions_form_created ON form_submissions(form_id, created_at DESC);
 CREATE INDEX idx_development_links_project_created ON development_links(project_id, created_at DESC);
+
+-- Supabase public-schema hardening: Taskflow has no browser-facing Data API policies.
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_issue_sequences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.issue_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.workflow_statuses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sprints ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.issues ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.issue_status_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.issue_attachments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_docs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_forms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.form_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.development_links ENABLE ROW LEVEL SECURITY;

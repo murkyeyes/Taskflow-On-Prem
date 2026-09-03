@@ -208,6 +208,19 @@ test('project domain APIs enforce transactions, invariants, and RBAC', { skip: !
   const rollbackProject = await pool.query("SELECT count(*)::int AS count FROM projects WHERE key = 'RBK'");
   assert.equal(rollbackProject.rows[0].count, 0);
 
+  assert.equal((await request('member', `/projects/${projectId}`, { method: 'DELETE' })).status, 403);
   assert.equal((await request('admin', `/projects/${projectId}`, { method: 'DELETE' })).status, 204);
-  assert.equal((await pool.query('SELECT count(*)::int AS count FROM projects WHERE id = $1', [projectId])).rows[0].count, 0);
+  const softDeleted = (await pool.query(
+    `SELECT deleted_at IS NOT NULL AS deleted,
+            deleted_by,
+            (SELECT count(*)::int FROM issues WHERE project_id = projects.id) AS issue_count
+       FROM projects
+      WHERE id = $1`,
+    [projectId],
+  )).rows[0];
+  assert.deepEqual(softDeleted, { deleted: true, deleted_by: users.admin, issue_count: 1 });
+  assert.equal((await request('admin', `/projects/${projectId}`)).status, 403);
+  assert.equal((await request('admin', `/projects/${projectId}`, { method: 'DELETE' })).status, 404);
+  const activeSpacesAfterDelete = (await (await request('admin', '/projects')).json()).projects;
+  assert.equal(activeSpacesAfterDelete.some((space) => space.id === projectId), false);
 });

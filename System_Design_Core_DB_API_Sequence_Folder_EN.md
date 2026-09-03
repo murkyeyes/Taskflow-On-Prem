@@ -1,6 +1,6 @@
 # System Design — Supplement: DB Schema / API Spec / Sequence Diagram / Folder Architecture
 
-> Supplement to `System Design Addendum — Deployment on Windows PC with Docker + PostgreSQL`.
+> Supplement to `System_Design_Addendum_Cloud_Deployment.md`.
 > Decisions applied in this document:
 > - `issue_type` and `workflow_status` are **customizable per project** (not fixed globally across the system).
 > - The backend follows a **layered architecture**: `routes → controllers → services → repositories`.
@@ -26,7 +26,9 @@ CREATE TABLE projects (
     name        VARCHAR(200)  NOT NULL,
     description TEXT,
     created_by  INTEGER       NOT NULL REFERENCES users(id),
-    created_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+    created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    deleted_at  TIMESTAMPTZ,
+    deleted_by  INTEGER REFERENCES users(id)
 );
 
 -- ========== project_members ==========
@@ -478,19 +480,45 @@ frontend/
 └── vite.config.js (or equivalent build configuration)
 ```
 
-### 4.3 Root Project (matches the `docker-compose.yml` described in the previous document)
+### 4.3 Root Project (cloud production layout)
 
 ```text
 project-root/
 ├── backend/           # see 4.1
-├── frontend/          # see 4.2 — builds to frontend/dist, served by Caddy
-├── docker-compose.yml
-├── Caddyfile
+├── frontend/          # see 4.2 — Vercel root, builds to frontend/dist
+│   └── vercel.json    # SPA deep-link fallback
+├── render.yaml        # Render backend Blueprint
+├── docker-compose.yml # local development / legacy recovery only
+├── Caddyfile          # legacy local deployment only
 ├── .env.example
 ├── RULES.md
 ├── CHECKLIST.md
-└── backups/
+├── docs/DEPLOYMENT_HANDOVER.md
+└── backups/           # local logical dumps; never committed
 ```
+
+### 4.4 Cloud production topology (approved 2026-08-26)
+
+```text
+Browser
+  ├─ https://app.example.com ─ Cloudflare proxy ─ Vercel (React/Vite)
+  └─ https://api.example.com ─ Cloudflare proxy ─ Render (Express /api)
+                                                    │
+                                                    └─ TLS PostgreSQL
+                                                       Supabase/Supavisor
+```
+
+The frontend reads `VITE_API_BASE_URL`; the Express API is the only database client.
+The two hostnames must share an apex domain so the HttpOnly JWT cookie remains
+same-site. Express uses an exact CORS allowlist with credentials. Render uses the
+Supabase Session pooler for its long-lived IPv4 connection, while schema migrations
+and logical backups use a direct connection when IPv6 is available. Cloudflare must
+not cache `/api/*`.
+
+Migration `010-supabase-public-schema-rls.sql` enables row-level security on all 17
+Taskflow tables in `public` and intentionally creates no `anon`/`authenticated`
+policies. This blocks Supabase Data API access while the trusted PostgreSQL role used
+by Express remains the sole data path.
 
 ## 5. Approved Jira-style Workspace Expansion (2026-08-22)
 
@@ -582,6 +610,7 @@ The implementation migrations must be idempotent for an existing database (`ADD 
 | Resource | Endpoints | Read | Write |
 |---|---|---|---|
 | Summary | `GET /api/projects/:projectId/summary` | viewer/member/admin | derived, no direct write |
+| Space lifecycle | `DELETE /api/projects/:projectId` | application admin | Soft-delete only; preserve related records and reserve the key |
 | Sprints | `GET,POST /api/projects/:projectId/sprints`; `PATCH,DELETE /api/projects/:projectId/sprints/:sprintId` | all roles | member/admin create/update; admin delete |
 | Planning | `PATCH /api/issues/:issueKey/planning` | through issue reads | member/admin |
 | Development | `GET,POST /api/projects/:projectId/development-links`; `DELETE .../:linkId` | all roles | member/admin |
@@ -603,7 +632,7 @@ All resource identifiers must be verified as belonging to `projectId`. SQL stays
 
 Project routes are `/projects/:projectId/summary`, `/backlog`, `/board`, `/timeline`, `/development`, `/docs`, `/forms`, and `/settings`. `/projects/:projectId` remains compatible and redirects to the board or summary.
 
-The React project adds `components/layout/WorkspaceShell.jsx`, `Sidebar.jsx`, `ProjectHeader.jsx`, `ProjectTabs.jsx`, plus one page component for each route above. The shell provides the Jira-style dark visual system and a functional collapsible sidebar. Summary uses native CSS/SVG rather than a new chart framework. Every tab must load real API data and all mutating controls must respect the current project role.
+The React project adds `components/layout/WorkspaceShell.jsx`, `Sidebar.jsx`, `ProjectHeader.jsx`, `ProjectTabs.jsx`, plus one page component for each route above. The shell provides the Jira-style dark visual system and a functional collapsible sidebar. At browser zoom 100%, its desktop density follows Atlassian's 14px/20px body typography, 48px top navigation, 32px compact controls, 4/8/16px spacing rhythm, and 304px expanded sidebar. These are shared CSS dimensions rather than visual scaling, so text, focus rings, sticky positioning, popovers, and responsive layouts remain crisp and correctly aligned. Summary uses native CSS/SVG rather than a new chart framework. Every tab must load real API data and all mutating controls must respect the current project role.
 
 ## 6. Board controls and Admin Account Provisioning Expansion (2026-08-22)
 

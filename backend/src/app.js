@@ -1,5 +1,7 @@
 const cookieParser = require('cookie-parser');
 const express = require('express');
+const env = require('./config/env');
+const systemRepository = require('./repositories/system.repository');
 
 if (process.env.PROTECTED_RUNTIME === '1') require('bytenode');
 
@@ -7,6 +9,7 @@ const {
   errorHandler,
   notFoundHandler,
 } = require('./middlewares/errorHandler.middleware');
+const corsMiddleware = require('./middlewares/cors.middleware');
 const authRoutes = require('./routes/auth.routes');
 const { attachmentRouter, issueAttachmentRouter } = require('./routes/attachment.routes');
 const { commentRouter, issueCommentRouter } = require('./routes/comment.routes');
@@ -22,10 +25,23 @@ const settingsRoutes = require('./routes/settings.routes');
 const app = express();
 
 app.disable('x-powered-by');
+app.set('trust proxy', env.trustProxy);
+app.use(corsMiddleware);
+app.use((request, response, next) => {
+  response.set('Cache-Control', 'no-store');
+  next();
+});
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 
-app.get('/api/health', (request, response) => response.json({ status: 'ok' }));
+app.get('/api/health', async (request, response) => {
+  try {
+    await systemRepository.checkConnection();
+    return response.json({ status: 'ok', database: 'ok' });
+  } catch {
+    return response.status(503).json({ status: 'degraded', database: 'unavailable' });
+  }
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/settings', settingsRoutes);

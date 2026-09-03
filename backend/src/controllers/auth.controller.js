@@ -10,8 +10,9 @@ const {
 
 const cookieOptions = Object.freeze({
   httpOnly: true,
-  sameSite: 'lax',
+  sameSite: env.cookieSameSite,
   secure: env.cookieSecure,
+  ...(env.cookieDomain ? { domain: env.cookieDomain } : {}),
   path: '/',
   maxAge: 8 * 60 * 60 * 1000,
 });
@@ -41,8 +42,9 @@ async function login(request, response) {
 function logout(request, response) {
   response.clearCookie('token', {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: env.cookieSameSite,
     secure: env.cookieSecure,
+    ...(env.cookieDomain ? { domain: env.cookieDomain } : {}),
     path: '/',
   });
   response.status(204).send();

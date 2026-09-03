@@ -2,16 +2,19 @@
 
 > Checklist này phải được thực hiện cùng với `RULES.md`,
 > `System_Design_Core_DB_API_Sequence_Folder_EN.md` và
-> `System_Design_Addendum_Windows_Docker_Postgres.md`.
+> `System_Design_Addendum_Cloud_Deployment.md`.
 >
 > Chỉ đánh dấu `[x]` khi item đã **IMPLEMENTED + TESTED**.
 > Không đánh dấu hoàn thành nếu mới viết code nhưng chưa chạy test tương ứng.
+>
+> Các mục Docker/Caddy/Windows đã hoàn thành trước Phase 38 là lịch sử của deployment
+> cũ, không còn là hướng dẫn production. Phase 38 là chuẩn cloud hiện hành.
 
 ---
 
 ## Phase 0 — Project bootstrap
 
-- [x] Xác nhận repository có đầy đủ các tài liệu bắt buộc: `RULES.md`, `CHECKLIST.md`, `System_Design_Core_DB_API_Sequence_Folder_EN.md`, `System_Design_Addendum_Windows_Docker_Postgres.md`
+- [x] Xác nhận repository có đầy đủ tài liệu bắt buộc hiện hành: `RULES.md`, `CHECKLIST.md`, `System_Design_Core_DB_API_Sequence_Folder_EN.md`, `System_Design_Addendum_Cloud_Deployment.md`
 - [x] Tạo/chuẩn hoá root structure: `backend/`, `frontend/`, `docker-compose.yml`, `Caddyfile`, `.env.example`, `backups/`
 - [x] Khởi tạo/kiểm tra git repo và `.gitignore`; loại trừ tối thiểu `.env`, `node_modules/`, `frontend/dist/`, `frontend-dist/`, `backups/*.dump`
 - [x] Viết/chuẩn hoá `README.md` mô tả dev flow, build flow và Docker deployment flow
@@ -905,19 +908,88 @@ Chỉ thực hiện nếu khách cần truy cập ngoài LAN.
 
 ---
 
+## Phase 38 — Cloud deployment migration
+
+- [x] Replace the Windows/Caddy production architecture in Rules and System Design
+  with Render, Vercel, Supabase, and Cloudflare
+- [x] Make the frontend API origin configurable and preserve credentialed requests
+- [x] Add exact-origin CORS, proxy trust, secure cookie, and database pool settings
+  for Render/Supabase
+- [x] Enable RLS on every public Taskflow table without browser Data API policies
+- [x] Add a one-time production Overall Admin bootstrap command; forbid dev seed data
+- [x] Add `render.yaml` and Vercel SPA routing configuration
+- [x] Rewrite README, deployment handover, backup, and legacy deployment documents
+- [x] Run backend tests, frontend tests/build, protected build, Docker image build, and
+  deployment-config consistency checks
+- [ ] Create the real Supabase, Render, Vercel, and Cloudflare resources and complete
+  the production smoke test (requires the owner's accounts, domain, and secrets)
+
+---
+
+## Phase 39 — Safe Space deletion
+
+> User-requested Spaces-directory action dated 2026-08-27.
+
+- [x] Add a reversible database-level Space soft-deletion marker and migration
+- [x] Restrict deletion to application Admins and retain all related history
+- [x] Hide deleted Spaces from lists, navigation, RBAC resolution, and direct issue access
+- [x] Add Delete Space to the row menu with confirmation, feedback, and localization
+- [x] Run backend/frontend tests, migration verification, protected build, and local browser verification
+
+---
+
+## Phase 40 — Jira 100% desktop density
+
+> User-requested Jira scale alignment dated 2026-08-27.
+
+- [x] Synchronize Rules and System Design with the Jira desktop density contract
+- [x] Apply the 14px typography and compact shared control/spacing scale
+- [x] Align the top navigation, expanded sidebar, project header, and workspace content
+- [x] Verify frontend tests, production build, and local rendered density tokens
+
+---
+
+## Phase 41 — Daily verified off-site database backup
+
+> User-requested data-loss protection dated 2026-08-27.
+
+- [x] Synchronize Rules and Cloud System Design with daily 12:00 Vietnam-time backup, retention, and RPO rules
+- [x] Add DPAPI credential setup, validated backup, and Windows scheduling scripts
+- [x] Add checksum, failure logging, 12-week retention, and off-site destination guidance
+- [x] Run PowerShell validation and a real dump/restore integration test
+
+---
+
+## Phase 42 — Four-times-daily Windows Supabase backup package
+
+> User-requested production backup hardening dated 2026-08-27. This phase supersedes
+> the Phase 41 single daily trigger while retaining its verified-backup principles.
+
+- [x] Inspect existing backup scripts, cloud configuration, and current Supabase guidance
+- [x] Synchronize Rules and Cloud System Design with 00:00/06:00/12:00/18:00 scheduling
+- [x] Add the self-contained `backup/` PowerShell package and Git-ignored local secrets
+- [x] Implement atomic custom dumps, verification, detailed logs, and 30-day retention
+- [x] Implement explicit-target, confirmation-gated restore without automatic production overwrite
+- [x] Add and validate restart-safe Windows Task Scheduler registration with four daily triggers
+- [x] Run a real manual dump, `pg_restore --list`, restore, failure-safety, and retention workflow test against isolated PostgreSQL containers
+- [x] Document prerequisites, configuration, manual operation, scheduling, and recovery
+- [ ] On the production Windows machine, add the real `backup/.env`, register the task as Administrator, and confirm its first Supabase run
+
+---
+
 ## Completion rule
 
 
 Dự án chỉ được coi là hoàn thành khi:
 
 - tất cả item bắt buộc đã `[x]`;
-- database/schema/API/frontend/Docker đều đã chạy test thật;
+- database/schema/API/frontend và cloud manifests đều đã chạy test/validation phù hợp;
 - atomic issue-key concurrency test pass;
 - status-history transaction test pass;
 - production artifact chạy được;
-- Docker E2E qua Caddy pass;
+- production E2E qua Cloudflare → Vercel/Render pass;
 - backup + restore test pass;
-- Windows reboot test pass;
+- Render/Vercel redeploy and rollback drill pass;
 - mọi blocker/deviation đã được người dùng quyết định rõ.
 
-Optional Phase 10 và các optional cloud-sync item không chặn completion nếu user xác nhận không dùng.
+Các legacy Docker/Windows phase được giữ làm lịch sử; Phase 38 là chuẩn production hiện hành.

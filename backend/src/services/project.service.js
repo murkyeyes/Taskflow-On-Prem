@@ -64,8 +64,8 @@ async function updateProject(projectId, changes) {
   return project;
 }
 
-async function deleteProject(projectId) {
-  if (!await projectRepository.remove(projectId)) {
+async function deleteProject(projectId, deletedBy) {
+  if (!await projectRepository.softDelete(projectId, deletedBy)) {
     throw new HttpError(404, 'PROJECT_NOT_FOUND', 'Project not found');
   }
 }

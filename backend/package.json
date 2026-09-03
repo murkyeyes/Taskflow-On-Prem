@@ -2,11 +2,12 @@
   "name": "taskflow-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Taskflow On-Prem Express API",
+  "description": "Taskflow cloud-ready Express API",
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
+    "bootstrap-admin": "node scripts/bootstrap-admin.js",
     "test": "node --test",
     "protect": "node scripts/protect-production.js"
   },

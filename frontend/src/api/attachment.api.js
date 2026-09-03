@@ -1,4 +1,4 @@
-import { ApiError, apiRequest, jsonBody } from './client';
+import { ApiError, apiRequest, apiUrl, jsonBody } from './client';
 
 export const listAttachments = (issueKey) => apiRequest(`/issues/${encodeURIComponent(issueKey)}/attachments`);
 
@@ -12,7 +12,7 @@ async function checkedResponse(response) {
 export const createAttachmentLink = (issueKey, data) => apiRequest(`/issues/${encodeURIComponent(issueKey)}/attachments`, { method: 'POST', body: jsonBody(data) });
 
 export async function downloadAttachment(attachment) {
-  const response = await checkedResponse(await fetch(`/api/attachments/${attachment.id}/download`, { credentials: 'include' }));
+  const response = await checkedResponse(await fetch(apiUrl(`/attachments/${attachment.id}/download`), { credentials: 'include' }));
   const url = URL.createObjectURL(await response.blob());
   const link = document.createElement('a');
   link.href = url;

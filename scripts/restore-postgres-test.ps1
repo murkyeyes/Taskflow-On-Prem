@@ -2,12 +2,19 @@
 param(
   [Parameter(Mandatory=$true)][string]$DumpPath,
   [string]$Container = 'taskflow-restore-test',
-  [string]$Password = 'restore_test_password'
+  [string]$Password = 'restore_test_password',
+  [string]$PostgresImage = 'postgres:17-alpine'
 )
 $ErrorActionPreference = 'Stop'
 $resolved = (Resolve-Path -LiteralPath $DumpPath).Path
+$checksumPath = "$resolved.sha256"
+if (Test-Path -LiteralPath $checksumPath -PathType Leaf) {
+  $expectedHash = ((Get-Content -LiteralPath $checksumPath -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
+  $actualHash = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actualHash -ne $expectedHash) { throw 'Backup checksum verification failed.' }
+}
 & docker rm -f $Container 2>$null | Out-Null
-& docker run -d --name $Container -e "POSTGRES_PASSWORD=$Password" -e POSTGRES_USER=restore -e POSTGRES_DB=restore postgres:16-alpine | Out-Null
+& docker run -d --name $Container -e "POSTGRES_PASSWORD=$Password" -e POSTGRES_USER=restore -e POSTGRES_DB=restore $PostgresImage | Out-Null
 try {
   for ($i=0; $i -lt 30; $i++) { & docker exec $Container pg_isready -U restore -d restore *> $null; if ($LASTEXITCODE -eq 0) { break }; Start-Sleep -Seconds 2 }
   if ($LASTEXITCODE -ne 0) { throw 'Restore PostgreSQL did not become ready.' }

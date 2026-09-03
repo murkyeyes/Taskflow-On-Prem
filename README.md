@@ -1,27 +1,31 @@
-# Taskflow On-Prem
+# Taskflow
 
-Taskflow On-Prem is a self-hosted task and issue tracker. The prescribed stack is a Node.js LTS/Express backend using PostgreSQL 16 through `pg`, a React frontend, and Caddy as the static server and HTTPS reverse proxy. Production deployment uses Docker Compose on Windows with the WSL2 backend.
+Taskflow is a Jira-style task and report tracker. The production architecture is:
 
-This repository is being built phase-by-phase according to `CHECKLIST.md`. Commands below describe the intended development and deployment workflow; components become runnable as their checklist phases are completed.
+```text
+Browser
+  ├─ app.example.com → Cloudflare → Vercel (React/Vite)
+  └─ api.example.com → Cloudflare → Render (Node.js/Express)
+                                          └─ Supabase PostgreSQL
+```
+
+The Express API remains the only database client and enforces all RBAC. Supabase is
+used as managed PostgreSQL, not as a browser SDK or replacement authentication layer.
 
 ## Local development
 
-Prerequisites:
-
-- Node.js LTS 20.x or 22.x and npm
-- PostgreSQL 16
-- A local environment file created from `.env.example`
-
-Backend:
+Prerequisites: Node.js 20/22, npm, and PostgreSQL 16.
 
 ```powershell
 Copy-Item .env.example .env
+# Fill DATABASE_URL and JWT_SECRET in .env.
+
 Set-Location backend
 npm install
 npm run dev
 ```
 
-Frontend, in a second terminal:
+In a second terminal:
 
 ```powershell
 Set-Location frontend
@@ -29,47 +33,57 @@ npm install
 npm run dev
 ```
 
-The backend uses PostgreSQL parameterized queries and cookie-based JWT authentication. Do not put the JWT in browser storage. Local database initialization commands will be documented when the database scripts are added in Phase 1.
+Vite proxies local `/api` requests to `http://localhost:3000`. To test a remote API,
+copy `frontend/.env.example` to `frontend/.env.local` and set `VITE_API_BASE_URL`.
 
-## Build flow
-
-Build the React source project from `frontend/`:
+To run the complete legacy local stack through Docker and Caddy, set the required
+local-only values in the ignored root `.env`, refresh `frontend-dist`, and run:
 
 ```powershell
-Set-Location frontend
-npm install
+docker compose up -d --build
+```
+
+Open `http://localhost:8080`. This Compose profile deliberately uses
+`NODE_ENV=development` because its PostgreSQL connection stays inside Docker without
+TLS; the Render/Supabase production profile continues to require database TLS.
+
+## Test and build
+
+```powershell
+Set-Location backend
+npm test
+
+Set-Location ..\frontend
+npm test
 npm run build
 ```
 
-The standard frontend build output is `frontend/dist/`. During production packaging, that output is copied or synchronized to the root `frontend-dist/` deployment artifact served by Caddy. The backend production build will compile sensitive modules with `bytenode` and obfuscate the remaining production code before the Docker image is assembled; development source remains unchanged.
+## Production deployment
 
-## Docker deployment on Windows
+1. Create a Supabase project, copy the Session pooler connection string, append
+   `sslmode=require`, apply `backend/src/db/schema.sql` for a fresh database, and run
+   the one-time `npm run bootstrap-admin` command. Never use `seed.sql` in production.
+2. Connect the repository to Render as a Blueprint using root `render.yaml`. Enter
+   every variable marked `sync: false` in the Render Dashboard.
+3. Connect the repository to Vercel with Root Directory `frontend`; set
+   `VITE_API_BASE_URL` to the API URL.
+4. Add `app.example.com` to Vercel and `api.example.com` to Render.
+5. In Cloudflare, create provider-required CNAME records as DNS-only. Wait for both
+   providers to verify and issue TLS certificates, then enable Proxied mode and Full
+   (strict) TLS.
+6. Set `CORS_ALLOWED_ORIGINS=https://app.example.com`, redeploy Render, and run the
+   smoke tests in [docs/DEPLOYMENT_HANDOVER.md](docs/DEPLOYMENT_HANDOVER.md).
 
-Prerequisites:
+Use a common apex domain for `app` and `api`; this keeps the Secure, HttpOnly,
+SameSite=Lax authentication cookie same-site. Never commit `.env`, database passwords,
+JWT secrets, or provider tokens.
 
-- Docker Desktop configured with the WSL2 backend
-- Docker Desktop set to start when the deployment user signs in
-- Sleep and hibernation disabled on the always-on host
-- A deployment environment file created from `.env.example`, with real secrets and the host-generated `HOST_FINGERPRINT`
+Detailed architecture and operations:
 
-Start the stack from the repository root:
+- [Cloud System Design](System_Design_Addendum_Cloud_Deployment.md)
+- [Deployment and Handover](docs/DEPLOYMENT_HANDOVER.md)
+- [Backup and Recovery](docs/TASK_SCHEDULER.md)
 
-```powershell
-Copy-Item .env.example .env
-# Fill in every required value in .env before continuing.
-docker compose up -d --build
-docker compose ps
-```
-
-The production stack consists of separate `db`, `app`, and `caddy` containers on the internal `app-net` network. PostgreSQL must not publish port 5432 to the host. Caddy serves the React static build and proxies `/api/*` to the app container.
-
-View logs or stop the stack:
-
-```powershell
-docker compose logs -f
-docker compose down
-```
-
-Do not commit `.env`. Database backups belong in `backups/` and use PostgreSQL custom dump format (`pg_dump -Fc`).
-
-See [docs/DEPLOYMENT_HANDOVER.md](docs/DEPLOYMENT_HANDOVER.md) for Windows handover, fingerprint/license setup, scheduled backups, and restore steps. Remote access through Cloudflare Tunnel is optional and is not enabled unless the deployment owner requests it.
+Legacy `docker-compose.yml` and `Caddyfile` are retained for offline development and
+recovery only. The Supabase four-times-daily backup scripts run from a trusted Windows machine;
+they are an operations safeguard, not a production application host.

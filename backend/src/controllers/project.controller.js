@@ -79,7 +79,10 @@ async function update(request, response) {
 }
 
 async function remove(request, response) {
-  await projectService.deleteProject(request.projectId);
+  await projectService.deleteProject(
+    requireInteger(request.params.projectId, 'projectId', { min: 1 }),
+    request.user.userId,
+  );
   response.status(204).send();
 }
 

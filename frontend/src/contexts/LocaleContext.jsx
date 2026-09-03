@@ -69,6 +69,7 @@ const documentTranslations = {
     'Preview a template for your next Space': 'Xem trước mẫu cho Không gian tiếp theo', 'More templates': 'Thêm mẫu',
     'Name': 'Tên', 'Key': 'Khóa', 'Access': 'Quyền truy cập', 'Open Space': 'Mở Không gian', 'No description provided.': 'Chưa có mô tả.',
     'No matching Spaces': 'Không có Không gian phù hợp', 'No Spaces assigned': 'Chưa được giao Không gian',
+    'Delete Space': 'Xóa Không gian', 'Deleting…': 'Đang xóa…',
     'Try another search or template.': 'Hãy thử tìm kiếm hoặc mẫu khác.', 'Ask an Admin to assign you to a Space.': 'Hãy yêu cầu Quản trị viên giao Không gian cho bạn.',
     'Monthly backlogs': 'Danh sách chờ theo tháng', 'All months': 'Tất cả các tháng', 'Complete work history': 'Toàn bộ lịch sử công việc',
     'All months Backlog': 'Danh sách chờ của tất cả các tháng', 'Plan work and review reports by creation month.': 'Lập kế hoạch công việc và xem báo cáo theo tháng tạo.',

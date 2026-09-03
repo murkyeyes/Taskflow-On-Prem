@@ -2,10 +2,12 @@ const pool = require('../config/db');
 
 async function findRoleByProjectId(projectId, userId, client = pool) {
   const result = await client.query(
-    `SELECT project_id, project_role
-       FROM project_members
-      WHERE project_id = $1
-        AND user_id = $2`,
+    `SELECT member.project_id, member.project_role
+       FROM project_members AS member
+       JOIN projects AS project ON project.id = member.project_id
+      WHERE member.project_id = $1
+        AND project.deleted_at IS NULL
+        AND member.user_id = $2`,
     [projectId, userId],
   );
   return result.rows[0] ?? null;
@@ -15,6 +17,9 @@ async function findRoleByIssueKey(issueKey, userId, client = pool) {
   const result = await client.query(
     `SELECT issue.project_id, member.project_role
        FROM issues AS issue
+       JOIN projects AS project
+         ON project.id = issue.project_id
+        AND project.deleted_at IS NULL
        JOIN project_members AS member
          ON member.project_id = issue.project_id
         AND member.user_id = $2
@@ -37,6 +42,7 @@ async function findEffectiveRoleByProjectId(projectId, userId, client = pool) {
          ON member.project_id = project.id
         AND member.user_id = $2
       WHERE project.id = $1
+        AND project.deleted_at IS NULL
         AND (account_access.is_admin OR member.user_id IS NOT NULL)`,
     [projectId, userId],
   );
@@ -51,6 +57,9 @@ async function findEffectiveRoleByIssueKey(issueKey, userId, client = pool) {
      SELECT issue.project_id,
             CASE WHEN account_access.is_admin THEN 'admin' ELSE member.project_role END AS project_role
        FROM issues AS issue
+       JOIN projects AS project
+         ON project.id = issue.project_id
+        AND project.deleted_at IS NULL
        CROSS JOIN account_access
        LEFT JOIN project_members AS member
          ON member.project_id = issue.project_id

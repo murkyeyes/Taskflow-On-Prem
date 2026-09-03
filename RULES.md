@@ -3,7 +3,7 @@
 > File này là **technical source of truth** cho quá trình triển khai dự án.
 > Nó phải được áp dụng cùng với:
 > - `System_Design_Core_DB_API_Sequence_Folder_EN.md`
-> - `System_Design_Addendum_Windows_Docker_Postgres.md`
+> - `System_Design_Addendum_Cloud_Deployment.md`
 > - `CHECKLIST.md`
 >
 > Nếu implementation hoặc yêu cầu phát sinh mâu thuẫn với các tài liệu trên, agent phải dừng lại,
@@ -17,7 +17,7 @@ Khi triển khai, áp dụng theo thứ tự:
 
 1. `RULES.md` — các ràng buộc kỹ thuật bắt buộc.
 2. `System_Design_Core_DB_API_Sequence_Folder_EN.md` — schema, API contract, sequence/transaction và folder architecture.
-3. `System_Design_Addendum_Windows_Docker_Postgres.md` — deployment Windows + Docker + PostgreSQL và các lưu ý vận hành.
+3. `System_Design_Addendum_Cloud_Deployment.md` — deployment Render + Vercel + Supabase + Cloudflare và các lưu ý vận hành.
 4. `CHECKLIST.md` — thứ tự thực thi và điều kiện hoàn thành.
 
 `CHECKLIST.md` không được dùng để thay đổi hoặc giản lược specification trong System Design.
@@ -32,11 +32,12 @@ Nếu không thể tương thích, phải hỏi người dùng.
 | Thành phần | Công nghệ bắt buộc | Không được tự ý dùng |
 |---|---|---|
 | Backend | Node.js LTS 20.x hoặc 22.x + Express | NestJS, Fastify hoặc framework backend khác |
-| Database | PostgreSQL 16 (`postgres:16-alpine`) | MariaDB/MySQL |
+| Database | Supabase PostgreSQL | MariaDB/MySQL; database chạy chung trong Render/Vercel |
 | DB driver | `pg` | `mysql2`; ORM nặng như Prisma/TypeORM nếu chưa được duyệt |
 | Frontend | React, build tĩnh bằng `npm run build` | Thay framework frontend nếu chưa được duyệt |
-| Reverse proxy / HTTPS | Caddy (`caddy:2-alpine`) | Nginx/IIS |
-| Deployment | Docker Compose | Cài app/db/proxy native trực tiếp trên Windows |
+| Reverse proxy / HTTPS | Cloudflare proxied DNS + Full (strict) TLS | Caddy/Nginx/IIS trong production cloud |
+| Backend deployment | Render Web Service, Docker runtime | Chạy backend trong Vercel Functions |
+| Frontend deployment | Vercel static Vite build | Serve frontend từ Render |
 | Auth | JWT trong HttpOnly Cookie + `bcryptjs` | JWT trong `localStorage`; session store riêng nếu chưa được duyệt |
 | Authorization | RBAC theo `project_members.project_role` | Chỉ kiểm soát quyền ở frontend |
 | Realtime-like updates | Lightweight polling | Persistent WebSocket |
@@ -211,8 +212,8 @@ JWT:
   account đã bị deactivate không tiếp tục truy cập được;
 - `requireAuth` áp dụng cho mọi route trừ login. `POST /auth/register` còn yêu cầu
   người gọi đang đăng nhập và có ít nhất một membership `project_role = admin`.
-  Public self-registration bị cấm. Tài khoản admin bootstrap được tạo bằng `seed.sql`
-  hoặc quy trình triển khai được phê duyệt.
+  Public self-registration bị cấm. Overall Admin đầu tiên của production chỉ được
+  tạo bằng quy trình một lần `npm run bootstrap-admin`; không chạy `seed.sql`.
 
 ### 7.2 Projects
 
@@ -226,6 +227,15 @@ may create a Space.
 - `GET /projects/:projectId`
 - `PATCH /projects/:projectId`
 - `DELETE /projects/:projectId`
+
+`DELETE /projects/:projectId` is an application-Admin operation and MUST be a
+soft deletion, never a cascading physical delete. It records `deleted_at` and
+`deleted_by`, preserves all Space tasks, reports, memberships, links, and audit
+history, and keeps the Space key reserved. Deleted Spaces are excluded from normal
+lists/sidebar/account-permission screens and cannot be opened or edited through
+regular Space/issue routes. The Spaces directory exposes **Delete Space** only to
+`overall_admin` or `admin` accounts and requires an explicit destructive-action
+confirmation before calling the API.
 
 Space Settings must expose an Admin-only Space details form backed by
 `PATCH /projects/:projectId`. Admins may change `name` (1–200 trimmed characters)
@@ -436,6 +446,13 @@ Polling nên được gom vào hook/service tương ứng như `usePolling`.
 ### 9.1 Jira-style shell và navigation
 
 - Giao diện workspace dùng dark theme kiểu Jira, top bar, project header/tabs và sidebar trái có thể thu gọn.
+- Desktop density at browser zoom 100% must follow the Atlassian/Jira scale: 14px body
+  type with a 20px line height, a 48px top navigation, compact 32px controls, and
+  the 4/8/16px spacing rhythm. The app must implement this through shared CSS
+  tokens and component dimensions, never through `zoom` or `transform: scale()`.
+- The expanded desktop sidebar is 304px so navigation density and the remaining
+  workspace proportions match Jira; existing responsive/collapsed behavior remains
+  authoritative for narrower screens.
 - Sidebar phải điều hướng thực sự tới Projects/For you, Summary, Backlog, Board, Timeline, Development, Docs, Forms và Settings; không để control giả không có hành vi.
 - Trạng thái thu gọn sidebar có thể lưu trong React state/localStorage; JWT vẫn tuyệt đối không được lưu trong localStorage.
 - Summary phải lấy aggregate thật từ API; Backlog/Timeline/Development/Docs/Forms phải đọc/ghi dữ liệu thật theo RBAC.
@@ -446,79 +463,65 @@ Polling nên được gom vào hook/service tương ứng như `usePolling`.
 
 ### 9.2 Build output và production static folder
 
-Để tương thích với cả hai System Design:
-
 - Source frontend nằm trong `frontend/`.
-- `npm run build` tạo build output tiêu chuẩn ở `frontend/dist/`.
-- Khi đóng gói/deploy production, static artifact được copy/sync sang root `frontend-dist/`.
-- Caddy production serve root `frontend-dist/`.
-
-Không coi `frontend/dist/` và `frontend-dist/` là hai frontend khác nhau:
-`frontend/dist/` là build output của source project; `frontend-dist/` là artifact phục vụ deployment/handover.
-
----
-
-## 10. Docker rules
-
-Các service chính:
-
-- `db`
-- `app`
-- `caddy`
-- optional `cloudflared`
-
-Tất cả service production phải có:
-
-`restart: unless-stopped`
-
-### 10.1 Network
-
-- Dùng internal network `app-net`.
-- `app` kết nối DB qua `db:5432`.
-- Không expose PostgreSQL port `5432` ra host.
-
-### 10.2 App container
-
-- Node.js LTS.
-- Không cài PM2.
-- `NODE_ENV=production`.
-- Có `mem_limit`.
-
-### 10.3 Postgres data
-
-Production ưu tiên bind-mount `pgdata` ra path rõ ràng trên Windows host, ví dụ:
-
-`D:\taskapp-data\pgdata`
-
-Named volume chỉ được dùng cho môi trường test/dev hoặc khi người dùng phê duyệt rõ.
-
-### 10.4 Secrets
-
-`.env` chứa secrets:
-
-- DB password
-- JWT secret
-- license/fingerprint values
-- các secret deployment khác
-
-`.env`:
-- không commit git;
-- không hardcode vào Dockerfile;
-- không hardcode trực tiếp vào compose.
+- `npm run build` tạo `frontend/dist/`.
+- Vercel build và phục vụ trực tiếp artifact này; production không copy sang
+  `frontend-dist/` và không dùng Caddy.
+- `VITE_API_BASE_URL` phải trỏ đến origin API Cloudflare, ví dụ
+  `https://api.example.com/api`; không hardcode domain production trong source.
+- Mọi request API phải giữ `credentials: 'include'`.
 
 ---
 
-## 11. Caddy / HTTPS
+## 10. Cloud deployment rules
 
-Caddy chạy bằng `caddy:2-alpine`.
+### 10.1 Render backend
 
-Vai trò:
+- Chạy backend Express dưới dạng Render Web Service từ `backend/Dockerfile`.
+- Bind `0.0.0.0` và dùng biến `PORT` do Render cấp.
+- `render.yaml` là cấu hình hạ tầng chuẩn; secrets dùng `sync: false` và được nhập
+  trong Render Dashboard, tuyệt đối không commit giá trị.
+- Health check là `/api/health` và phải kiểm tra được kết nối database.
+- Không lưu file/database trên filesystem tạm thời của Render.
+- Production không chạy `seed.sql`. Overall Admin đầu tiên được tạo một lần bằng
+  `npm run bootstrap-admin` với secret nhập qua environment, sau đó xoá secret khỏi
+  terminal/provider.
 
-- serve static frontend production artifact;
-- reverse proxy `/api/*` tới `app:3000`;
-- HTTPS / certificate management theo deployment environment.
+### 10.2 Supabase PostgreSQL
 
-Nếu môi trường dev/staging không có domain phù hợp cho public HTTPS, agent phải test reverse proxy theo cách khả thi và ghi rõ giới hạn thay vì fake HTTPS success.
+- Backend là thành phần duy nhất có `DATABASE_URL`; frontend không nhận database
+  password hoặc service-role key.
+- Render là process lâu dài: mặc định dùng Supavisor **Session mode** port `5432`
+  khi cần IPv4. Direct connection dùng cho migration/`pg_dump` nếu runner hỗ trợ IPv6.
+- Không dùng Transaction mode port `6543` cho backend này trừ khi đã tắt named
+  prepared statements và test toàn bộ query path.
+- Connection bắt buộc TLS (`sslmode=require`), pool có giới hạn và timeout rõ ràng.
+- Schema/migration vẫn do các SQL file trong repo quản lý; Supabase Dashboard không
+  được trở thành nguồn schema duy nhất.
+- Bật RLS cho mọi bảng trong schema `public` và không cấp policy cho `anon` hoặc
+  `authenticated`; browser không dùng Supabase Data API. Backend kết nối bằng role
+  PostgreSQL tin cậy và vẫn là nơi duy nhất enforce RBAC nghiệp vụ.
+
+### 10.3 Secrets
+
+Render giữ `DATABASE_URL`, `JWT_SECRET`, `HOST_FINGERPRINT`, `LICENSE_KEY`,
+`CORS_ALLOWED_ORIGINS`, `COOKIE_SECURE`, và pool settings. Vercel chỉ giữ
+`VITE_API_BASE_URL`. Cloudflare/Vercel/Supabase tokens không đưa vào runtime app.
+
+---
+
+## 11. Cloudflare / HTTPS / browser origin
+
+- Dùng cùng một apex domain với hai hostname: `app.example.com` cho Vercel và
+  `api.example.com` cho Render. Cấu hình này giữ auth cookie ở cùng site.
+- Thêm custom domain ở Vercel/Render trước, tạo DNS record ở Cloudflare ở chế độ
+  **DNS only** cho đến khi provider xác minh domain và cấp certificate; sau đó bật
+  **Proxied**.
+- Cloudflare SSL/TLS phải là **Full (strict)** sau khi origin certificate hợp lệ.
+- Backend chỉ phản hồi CORS credentialed cho allowlist chính xác trong
+  `CORS_ALLOWED_ORIGINS`; không dùng `*` với cookie.
+- Không dùng hostname `vercel.app` gọi trực tiếp `onrender.com` trong production vì
+  cookie sẽ thành cross-site/third-party và có thể bị trình duyệt chặn.
 
 ---
 
@@ -530,14 +533,9 @@ Production backend:
 - phần còn lại obfuscate bằng `javascript-obfuscator`;
 - không ship raw sensitive `.js` source nếu production packaging không yêu cầu.
 
-Device fingerprint:
-
-- lấy ở Windows host;
-- truyền vào app container qua `HOST_FINGERPRINT`;
-- không gọi `wmic`, `Get-CimInstance` hoặc Windows API từ Linux container để lấy host fingerprint;
-- không log fingerprint/license key plaintext.
-
-Approach mặc định: PowerShell host script tạo fingerprint và đưa vào `.env`.
+Cloud deployment không có machine identity ổn định. `HOST_FINGERPRINT` là deployment
+identifier ngẫu nhiên, ổn định, lưu bằng Render secret và dùng để phát hành
+`LICENSE_KEY`. Không sinh fingerprint từ container ID và không log hai giá trị này.
 
 ---
 
@@ -545,51 +543,63 @@ Approach mặc định: PowerShell host script tạo fingerprint và đưa vào 
 
 Backup:
 
-- PostgreSQL `pg_dump -Fc`;
-- gọi qua `docker exec` từ PowerShell;
-- chạy định kỳ bằng Windows Task Scheduler;
-- giữ 7–14 bản gần nhất.
+- bật/kiểm tra chính sách backup của Supabase theo plan;
+- chạy logical backup tự động của toàn bộ application schema `public` bốn lần mỗi
+  ngày lúc `00:00`, `06:00`, `12:00`, `18:00` theo múi giờ Việt Nam
+  (`Asia/Ho_Chi_Minh` / Windows `SE Asia Standard Time`);
+- package vận hành chính thức nằm trong `backup/`, dùng PostgreSQL client
+  `pg_dump -Fc`/`pg_restore`; không phụ thuộc backend Taskflow hoặc Docker service
+  của application đang chạy;
+- trước migration production, tạo logical backup `pg_dump -Fc` qua direct connection
+  hoặc môi trường CI/administrator đáng tin cậy;
+- backup định kỳ phải chạy từ một trusted runner độc lập với Render/Supabase (máy
+  công ty luôn bật là phù hợp), dùng Supavisor Session pooler khi runner cần IPv4;
+- lưu dump ngoài Supabase project và ngoài filesystem tạm của Render, ưu tiên ổ đĩa
+  thứ hai hoặc thư mục cloud-sync có restricted access; mã hoá theo chính sách
+  doanh nghiệp;
+- mỗi dump phải có tên `company_db_YYYY-MM-DD_HH-mm.dump`, có SHA-256 checksum,
+  pass `pg_restore --list`, ghi đầy đủ start time, filename, dump result, size,
+  verification, retention deletion và final status vào `logs/backup.log`;
+- file chỉ được đổi từ `.partial` sang `.dump` sau khi dump và verification thành
+  công; dump thiếu/rỗng/không đọc được phải bị xoá và process trả exit code khác 0;
+- giữ tất cả dump mới hơn 30 ngày; chỉ xoá dump cũ hơn retention sau khi một backup
+  mới đã được verify thành công và log rõ từng file bị xoá;
+- database URI/password không được đặt trong source, command line hoặc Scheduled
+  Task arguments; dùng `backup/.env` local bị Git ignore hoặc process environment;
+- Windows Scheduled Task phải có bốn daily triggers, `StartWhenAvailable`, retry và
+  chạy được sau reboot mà không cần backend Taskflow;
+- nếu cần PITR, phải chọn plan/add-on Supabase hỗ trợ PITR trước go-live.
 
 Không được đánh dấu backup hoàn thành chỉ vì tạo được `.dump`.
 
-Bắt buộc có ít nhất một **restore test thật** vào PostgreSQL sạch và verify dữ liệu trước khi bàn giao.
+Bắt buộc có ít nhất một **restore test thật** vào PostgreSQL sạch và verify dữ liệu
+trước khi bàn giao, sau đó lặp lại ít nhất hàng quý. Lịch bốn lần mỗi ngày cho recovery
+point tối đa gần 6 giờ; nếu doanh nghiệp cần ngắn hơn thì phải tăng tần suất hoặc mua
+PITR trước go-live. Restore luôn yêu cầu target connection được cung cấp rõ ràng và
+confirmation flag; không được tự động clean/overwrite production.
 
 ---
 
-## 14. Windows deployment rules
+## 14. Release and rollback rules
 
-Target chính:
-
-Windows 10/11 always-on PC, Docker Desktop dùng WSL2 backend.
-
-Cần kiểm tra/thiết lập theo deployment phase:
-
-- virtualization / WSL2;
-- Docker Desktop start on sign-in;
-- disable Sleep/Hibernate;
-- `restart: unless-stopped`;
-- autologin chỉ nếu khách đồng ý trade-off bảo mật;
-- Windows Defender Firewall;
-- reboot test thật.
-
-Nếu Docker Desktop licensing không phù hợp với khách hàng, không tự đổi phương án; báo người dùng để quyết định Docker Business hoặc phương án Docker Engine + Compose trên WSL2.
+- Thứ tự lần đầu: Supabase project/schema → Render backend → Vercel frontend →
+  custom domains/DNS Cloudflare → smoke test.
+- Thứ tự migration: backup → apply migration → deploy backend tương thích → deploy
+  frontend → smoke test.
+- Rollback app dùng Render rollback và Vercel deployment promotion/rollback. Rollback
+  schema chỉ bằng migration đảo chiều đã kiểm thử hoặc restore backup.
+- Preview deployment không được dùng production database nếu thay đổi schema/dữ liệu.
 
 ---
 
-## 15. Remote access
+## 15. Production network boundary
 
-Không port-forward trực tiếp app ra Internet.
-
-Nếu cần remote access:
-
-- dùng Cloudflare Tunnel;
-- `cloudflared` chạy trong Docker Compose;
-- production dùng hostname/domain cố định;
-- không dùng Quick Tunnel làm production endpoint.
-
-Nếu chỉ dùng Tunnel, không cần inbound firewall port.
-
-Nếu truy cập LAN trực tiếp qua HTTPS, mở đúng port cần thiết (thường 443).
+- Public traffic đi qua Cloudflare proxied DNS đến Vercel/Render.
+- Supabase không được gọi trực tiếp từ browser; Express giữ toàn bộ RBAC và SQL.
+- Bật Cloudflare WAF/rate-limit cho `/api/auth/*` khi plan cho phép, nhưng không cache
+  response `/api/*`.
+- `onrender.com` và `vercel.app` chỉ dùng để xác minh/chẩn đoán; hostname sản phẩm là
+  hai custom subdomain đã cấu hình.
 
 ---
 

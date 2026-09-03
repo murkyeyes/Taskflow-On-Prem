@@ -10,6 +10,6 @@ router.get('/', requireAuth, projectController.list);
 router.post('/', requireAuth, requireAccountAdmin, projectController.create);
 router.get('/:projectId', requireAuth, requireRole(['admin', 'member', 'viewer']), projectController.get);
 router.patch('/:projectId', requireAuth, requireRole(['admin']), projectController.update);
-router.delete('/:projectId', requireAuth, requireRole(['admin']), projectController.remove);
+router.delete('/:projectId', requireAuth, requireAccountAdmin, projectController.remove);
 
 module.exports = router;
